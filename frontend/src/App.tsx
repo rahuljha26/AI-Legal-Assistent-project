@@ -13,6 +13,7 @@ import AdvocateDashboard from "./pages/AdvocateDashboard";
 import AdminDashboard    from "./pages/AdminDashboard";
 import DocumentGenerator from "./pages/DocumentGenerator";
 import { ChatWidget, NyayaAssistant } from "./components";
+import MobileBottomNav from "./components/MobileBottomNav";
 
 function ProtectedRoute({ children, roles, requiredPermission }: { children: React.ReactNode; roles?: string[]; requiredPermission?: string }) {
   const { isLoggedIn, isLoading, user, hasRole, hasPermission } = useAuth();
@@ -35,6 +36,7 @@ function ProtectedRoute({ children, roles, requiredPermission }: { children: Rea
       {children}
       <ChatWidget />
       <NyayaAssistant />
+      <MobileBottomNav />
     </>
   );
 }
