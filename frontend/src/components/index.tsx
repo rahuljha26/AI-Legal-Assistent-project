@@ -104,7 +104,7 @@ export const Sidebar = ({ items, userName, userRole, onLogout, currentPath }: Si
       <div className="mx-3 mt-4 mb-2 rounded-2xl p-3" style={{ background:'rgba(79,110,247,.07)', border:'1px solid rgba(79,110,247,.12)' }}>
         <div className="flex items-center gap-3">
           {user?.profile_picture ? (
-            <img src={user.profile_picture} alt={userName} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+            <img src={user.profile_picture} alt={userName} referrerPolicy="no-referrer" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
           ) : (
             <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
               style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)', color:'white' }}>

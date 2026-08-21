@@ -52,7 +52,7 @@ export default function AdvocateDashboard() {
               + New Case
             </button>
             {user?.profile_picture ? (
-              <img src={user.profile_picture} alt={user?.full_name} className="avatar avatar-md" style={{ borderRadius: '50%', objectFit: 'cover' }} />
+              <img src={user.profile_picture} alt={user?.full_name} referrerPolicy="no-referrer" className="avatar avatar-md" style={{ borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
               <div className="avatar avatar-md" style={{ background: '#7C3AED', color: '#fff', borderRadius: '50%', fontWeight: 600, fontSize: '15px' }}>{initials}</div>
             )}

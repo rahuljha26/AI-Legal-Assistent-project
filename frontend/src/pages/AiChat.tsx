@@ -187,7 +187,7 @@ export default function AiChat() {
               </div>
               {m.role==='user' && (
                 user?.profile_picture ? (
-                  <img src={user.profile_picture} alt={user?.full_name} className="w-8 h-8 rounded-xl object-cover flex-shrink-0 mt-1" />
+                  <img src={user.profile_picture} alt={user?.full_name} referrerPolicy="no-referrer" className="w-8 h-8 rounded-xl object-cover flex-shrink-0 mt-1" />
                 ) : (
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-1"
                     style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)' }}>

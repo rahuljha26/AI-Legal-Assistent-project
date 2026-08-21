@@ -212,11 +212,12 @@ class GoogleAuthView(APIView):
         google_client_id = getattr(settings, 'GOOGLE_CLIENT_ID', '') or os.environ.get('GOOGLE_CLIENT_ID', '')
 
         try:
-            # Verify the Google ID token using Google's official auth library
+            # Verify the Google ID token using Google's official auth library with clock skew tolerance
             payload = id_token.verify_oauth2_token(
                 token,
                 google_requests.Request(),
                 google_client_id if google_client_id else None,
+                clock_skew_in_seconds=60,
             )
         except ValueError as e:
             logger.warning(f"[GOOGLE_AUTH] Stage: TOKEN_VALIDATION Status: FAILED Reason: {str(e)}")
@@ -274,25 +275,24 @@ class GoogleAuthView(APIView):
                 created = True
 
         # Update profile & last login
+        update_fields = ['last_login']
+        user.last_login = timezone.now()
+
         if not created:
-            updated = False
-            if google_sub and not user.google_id:
+            if google_sub and user.google_id != google_sub:
                 user.google_id = google_sub
-                updated = True
-            if not user.full_name and google_name:
+                update_fields.append('google_id')
+            if google_name and (not user.full_name or user.full_name == 'Google User'):
                 user.full_name = google_name
-                updated = True
+                update_fields.append('full_name')
             if google_picture and user.profile_picture != google_picture:
                 user.profile_picture = google_picture
-                updated = True
+                update_fields.append('profile_picture')
             if not user.is_verified:
                 user.is_verified = True
-                updated = True
-            if updated:
-                user.save()
+                update_fields.append('is_verified')
 
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
+        user.save(update_fields=update_fields)
 
         # Check account is active
         if not user.is_active:

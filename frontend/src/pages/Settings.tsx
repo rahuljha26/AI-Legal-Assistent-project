@@ -111,7 +111,7 @@ export default function Settings() {
                 <SectionCard title="Profile Information">
                   <div className="flex items-center gap-4 mb-6 p-4 rounded-2xl" style={{ background:'rgba(79,110,247,.05)', border:'1px solid rgba(79,110,247,.12)' }}>
                     {user?.profile_picture ? (
-                      <img src={user.profile_picture} alt={user?.full_name} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow:'0 0 20px rgba(79,110,247,.3)' }} />
+                      <img src={user.profile_picture} alt={user?.full_name} referrerPolicy="no-referrer" className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow:'0 0 20px rgba(79,110,247,.3)' }} />
                     ) : (
                       <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
                         style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)', boxShadow:'0 0 20px rgba(79,110,247,.3)' }}>

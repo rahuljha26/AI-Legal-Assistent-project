@@ -193,8 +193,9 @@ export function GoogleSignInButton({ onSuccess, onError, label = "Continue with 
     try {
       const user = await googleLogin(response.credential);
       onSuccess({ user });
-    } catch {
-      onError("Google authentication failed. Please try again.");
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Google authentication failed. Please try again.";
+      onError(msg);
     }
   }
 

@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "239460814371-37p3163iq29chuf504e2rh1hdrnbbgtl.apps.googleusercontent.com";
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || "";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -144,8 +144,11 @@ function GoogleOAuthButton({
           onError(res.message || "Google account verification failed.");
         }
       } catch (err: unknown) {
+        const errMessage = (err as any)?.message;
         if (!window.navigator.onLine) {
           onError("Google sign-in could not connect to the server. Check your network.");
+        } else if (errMessage) {
+          onError(`Google sign-in error: ${errMessage}`);
         } else {
           onError("Server authentication failed. Please try again.");
         }

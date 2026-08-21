@@ -63,7 +63,7 @@ export default function Sidebar() {
 
       <div className="sidebar-profile">
         {user?.profile_picture ? (
-          <img src={user.profile_picture} alt={user?.full_name} className="avatar" style={{ objectFit: 'cover' }} />
+          <img src={user.profile_picture} alt={user?.full_name} referrerPolicy="no-referrer" className="avatar" style={{ objectFit: 'cover' }} />
         ) : (
           <div className="avatar" style={{ background: user?.role === 'admin' ? '#DC2626' : user?.role === 'advocate' ? '#7C3AED' : 'var(--primary)' }}>{initials}</div>
         )}

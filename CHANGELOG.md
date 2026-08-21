@@ -9,7 +9,14 @@ All notable changes to the AI Legal Assistant project will be documented in this
 ### Current Focus
 - Enterprise Authentication & Security Upgrade (15-Phase Roadmap).
 
-### Documentation & Blueprint PDF
+### Fixes
+- ✓ **Google Authentication Error Handling**: Resolved `"Google authentication failed. Please try again."` issue by adding fallback `GOOGLE_CLIENT_ID` in `OAuthButtons.tsx` and preventing swallowed error messages in `AuthComponents.jsx` & `OAuthButtons.tsx` so exact server and connection error reasons are surfaced to the user UI.
+- ✓ **Google OAuth Clock Skew Tolerance**: Added `clock_skew_in_seconds=60` to Google ID token verification in `GoogleAuthView` (`project/AILegal/views.py`) to handle minor system clock drift ("Token used too early") between local machines and Google auth servers.
+- ✓ **Google Profile Picture Rendering & Persistence**: Updated `GoogleAuthView` in `project/AILegal/views.py` to ensure `profile_picture` is explicitly included in database updates for existing users, and added `referrerPolicy="no-referrer"` to avatar `<img>` elements across frontend components to bypass Google CDN hotlinking referrer restrictions (`lh3.googleusercontent.com`).
+
+### Documentation & Mobile Access
+- ✓ **Mobile Access & Local Host Binding**: Added `host: true` to Vite server configurations (`frontend/vite.config.ts` & `project/frontend/vite.config.js`) binding to `0.0.0.0` so mobile devices on the same Wi-Fi network can open `http://192.168.1.187:5173`.
+- ✓ **Mobile Access QR Codes**: Generated scannable QR codes for both live production web deployment and local Wi-Fi testing (`http://192.168.1.187:5173`).
 - ✓ **Enterprise Production Blueprint**: Added `LexAI_Enterprise_Production_Blueprint.pdf` to the root repository for deployment and architecture guidelines.
 
 ### CORS & Netlify Deployment Fix
