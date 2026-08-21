@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar, Toast, useToast, Modal } from '../components/index';
+import NotificationBell from '../components/NotificationBell';
 import { authAPI } from '../services/api';
 
 type Section='profile'|'security'|'notifications'|'appearance'|'danger';
@@ -76,9 +77,12 @@ export default function Settings() {
       <Sidebar items={sidebar} userName={user?.full_name||''} userRole={user?.role||''} onLogout={logout} currentPath={location.pathname}/>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 px-8 py-4" style={{ background:'rgba(6,11,24,.85)', backdropFilter:'blur(16px)', borderBottom:'1px solid rgba(79,110,247,.1)' }}>
-          <h1 className="text-lg font-bold text-white">Settings</h1>
-          <p className="text-slate-400 text-xs">Manage your account preferences</p>
+        <div className="sticky top-0 z-10 px-8 py-4 flex items-center justify-between" style={{ background:'rgba(6,11,24,.85)', backdropFilter:'blur(16px)', borderBottom:'1px solid rgba(79,110,247,.1)' }}>
+          <div>
+            <h1 className="text-lg font-bold text-white">Settings</h1>
+            <p className="text-slate-400 text-xs">Manage your account preferences</p>
+          </div>
+          <NotificationBell />
         </div>
 
         <div className="p-8 max-w-5xl mx-auto">
@@ -106,10 +110,14 @@ export default function Settings() {
               {section==='profile' && (
                 <SectionCard title="Profile Information">
                   <div className="flex items-center gap-4 mb-6 p-4 rounded-2xl" style={{ background:'rgba(79,110,247,.05)', border:'1px solid rgba(79,110,247,.12)' }}>
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-                      style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)', boxShadow:'0 0 20px rgba(79,110,247,.3)' }}>
-                      {initials}
-                    </div>
+                    {user?.profile_picture ? (
+                      <img src={user.profile_picture} alt={user?.full_name} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow:'0 0 20px rgba(79,110,247,.3)' }} />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
+                        style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)', boxShadow:'0 0 20px rgba(79,110,247,.3)' }}>
+                        {initials}
+                      </div>
+                    )}
                     <div>
                       <p className="text-white font-semibold">{user?.full_name}</p>
                       <p className="text-slate-400 text-sm">{user?.email}</p>

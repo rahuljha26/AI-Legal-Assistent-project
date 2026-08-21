@@ -72,5 +72,19 @@ export const ikAPI = {
   citedBy:   (docid)         => API.get(`/ik/doc/${docid}/citedby/`),
 };
 
+export const youtubeAPI = {
+  /**
+   * Search for legal explainer videos on YouTube.
+   * GET /api/v1/youtube/search/?q=<query>&max=<int>&lang=<code>
+   * @param {string} q     - Legal topic / search query
+   * @param {number} max   - Max results (default 4, max 8)
+   * @param {string} lang  - Language code: 'hi' | 'en' (optional)
+   */
+  search: (q, max = 4, lang = null) => {
+    const params = { q, max };
+    if (lang) params.lang = lang;
+    return API.get('/youtube/search/', { params });
+  },
+};
 
 export default API;

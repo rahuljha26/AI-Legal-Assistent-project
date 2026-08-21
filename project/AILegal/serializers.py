@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import User, AdviceHistory, Document, Case, EmailLog
+from .models import User, AdviceHistory, Document, Case, EmailLog, Announcement, NyayaEmailLog
 
 
 # ─── Auth Serializers ─────────────────────────────────────────────────────────
@@ -17,8 +17,9 @@ class SignupSerializer(serializers.ModelSerializer):
         fields = ('full_name', 'email', 'password', 'confirm_password', 'role')
 
     def validate_role(self, value):
-        if value not in ('user', 'advocate'):
-            raise serializers.ValidationError("Role must be 'user' or 'advocate'.")
+        valid_roles = ('user', 'citizen', 'advocate', 'lawyer', 'admin', 'super_admin')
+        if value not in valid_roles:
+            raise serializers.ValidationError("Invalid role selected.")
         return value
 
     def validate(self, attrs):
@@ -31,7 +32,7 @@ class SignupSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
         user = User(**validated_data)
         user.set_password(password)
-        if validated_data.get('role') == 'user':
+        if validated_data.get('role') in ('user', 'citizen'):
             user.is_verified = True
         user.save()
         return user
@@ -43,10 +44,26 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    permissions = serializers.SerializerMethodField()
+    role_code = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ('id', 'full_name', 'email', 'role', 'is_verified', 'created_at')
-        read_only_fields = ('id', 'full_name', 'email', 'role', 'is_verified', 'created_at')
+        fields = ('id', 'full_name', 'email', 'role', 'role_code', 'is_verified', 'profile_picture', 'permissions', 'created_at')
+        read_only_fields = ('id', 'full_name', 'email', 'role', 'role_code', 'is_verified', 'profile_picture', 'permissions', 'created_at')
+
+    def get_permissions(self, obj):
+        from .permissions import get_user_permissions
+        return get_user_permissions(obj)
+
+    def get_role_code(self, obj):
+        return obj.get_role_code()
+
+
+class RoleAssignSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(required=True)
+    role = serializers.ChoiceField(choices=['super_admin', 'admin', 'lawyer', 'advocate', 'citizen', 'user'], required=True)
+
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -131,4 +148,61 @@ class EmailSendSerializer(serializers.Serializer):
 class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'full_name', 'email', 'role', 'is_verified', 'is_active', 'created_at')
+        fields = ('id', 'full_name', 'email', 'role', 'is_verified', 'is_active', 'profile_picture', 'created_at')
+
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    tag_display = serializers.CharField(source='get_tag_display', read_only=True)
+
+    class Meta:
+        model = Announcement
+        fields = ('id', 'title', 'content', 'tag', 'tag_display', 'created_at')
+
+
+# ─── Nyaya Voice Assistant Serializers ───────────────────────────────────────
+
+class NyayaDraftSerializer(serializers.Serializer):
+    """Validates the request to draft an email via the Nyaya Voice Assistant."""
+    URGENCY_CHOICES = ['Low', 'Normal', 'High', 'Urgent']
+
+    to_email = serializers.EmailField(required=True)
+    lawyer_name = serializers.CharField(max_length=255, required=False, default='', allow_blank=True)
+    case_situation = serializers.CharField(min_length=10, max_length=3000)
+    urgency = serializers.ChoiceField(choices=URGENCY_CHOICES, default='Normal')
+    specific_ask = serializers.CharField(max_length=1000, required=False, default='', allow_blank=True)
+    user_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    user_email = serializers.EmailField(required=False, allow_blank=True)
+
+
+class NyayaSendSerializer(serializers.Serializer):
+    """Validates the final send request — requires explicit user confirmation."""
+    to_email = serializers.EmailField(required=True)
+    lawyer_name = serializers.CharField(max_length=255, required=False, default='', allow_blank=True)
+    subject = serializers.CharField(max_length=500)
+    body = serializers.CharField()
+    case_situation = serializers.CharField(required=False, default='', allow_blank=True)
+    urgency = serializers.CharField(required=False, default='Normal')
+    specific_ask = serializers.CharField(required=False, default='', allow_blank=True)
+    attachments_json = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    # CRITICAL: send is blocked unless confirmed=True — enforces Step 5 of the workflow
+    confirmed = serializers.BooleanField()
+
+    def validate_confirmed(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Email cannot be sent without explicit user confirmation (confirmed must be true)."
+            )
+        return value
+
+
+class NyayaEmailLogSerializer(serializers.ModelSerializer):
+    """Serializes stored Nyaya email history for display in-app."""
+    class Meta:
+        model = NyayaEmailLog
+        fields = (
+            'id', 'to_email', 'lawyer_name', 'subject', 'body',
+            'case_situation', 'urgency', 'attachments_json',
+            'suggested_actions', 'status', 'created_at',
+        )

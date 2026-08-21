@@ -1,11 +1,13 @@
-import React, { useState, useEffect, ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 export { ChatWidget } from './ChatWidget';
+export { NyayaAssistant } from './NyayaAssistant';
+export { RoleBasedRoute } from './RoleBasedRoute';
 
 // ─── ProtectedRoute ───────────────────────────────────────────────────────────
 export const ProtectedRoute = ({ children, roles }: { children: ReactNode; roles?: string[] }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasRole } = useAuth();
   if (isLoading) return (
     <div className="min-h-screen mesh-bg flex items-center justify-center">
       <div className="text-center">
@@ -22,9 +24,10 @@ export const ProtectedRoute = ({ children, roles }: { children: ReactNode; roles
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) {
-    if (user.role==='admin') return <Navigate to="/admin/dashboard" replace />;
-    if (user.role==='advocate') return <Navigate to="/advocate/dashboard" replace />;
+  if (roles && roles.length > 0 && !hasRole(...roles)) {
+    const roleCode = user.role_code || user.role;
+    if (roleCode === 'super_admin' || roleCode === 'admin') return <Navigate to="/admin/dashboard" replace />;
+    if (roleCode === 'lawyer' || roleCode === 'advocate') return <Navigate to="/advocate/dashboard" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
@@ -77,6 +80,7 @@ interface SidebarItem { label:string; path:string; icon:string; }
 interface SidebarProps { items:SidebarItem[]; userName:string; userRole:string; onLogout:()=>void; currentPath:string; }
 
 export const Sidebar = ({ items, userName, userRole, onLogout, currentPath }: SidebarProps) => {
+  const { user } = useAuth();
   const initials = userName.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   const roleMap: Record<string,string> = { admin:'badge-admin', advocate:'badge-advocate', user:'badge-user' };
   const roleLabel: Record<string,string> = { admin:'Admin', advocate:'Advocate', user:'Citizen' };
@@ -99,10 +103,14 @@ export const Sidebar = ({ items, userName, userRole, onLogout, currentPath }: Si
       {/* User card */}
       <div className="mx-3 mt-4 mb-2 rounded-2xl p-3" style={{ background:'rgba(79,110,247,.07)', border:'1px solid rgba(79,110,247,.12)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
-            style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)', color:'white' }}>
-            {initials}
-          </div>
+          {user?.profile_picture ? (
+            <img src={user.profile_picture} alt={userName} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
+              style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)', color:'white' }}>
+              {initials}
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-white text-xs font-semibold truncate">{userName}</p>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleMap[userRole]}`}>

@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import OAuthButtons, { OAuthDivider, type OAuthUser } from "../components/OAuthButtons";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 const api = {
@@ -29,14 +30,7 @@ const api = {
 };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-const GoogleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 48 48" fill="none">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-  </svg>
-);
+
 
 const EyeIcon = ({ open }: { open: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -131,101 +125,6 @@ function useToast() {
   return { toasts, toast: add, remove };
 }
 
-// ─── Google Sign-In Button (loads GSI SDK) ────────────────────────────────────
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
-interface GoogleSignInProps {
-  onSuccess: (data: any) => void;
-  onError: (error: string) => void;
-  label?: string;
-}
-
-function GoogleSignInButton({ onSuccess, onError, label = "Continue with Google" }: GoogleSignInProps) {
-  const btnRef = useRef(null);
-  const [sdkReady, setSdkReady] = useState(false);
-
-  useEffect(() => {
-    // Load Google Identity Services SDK
-    if (window.google) { initGoogle(); return; }
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = initGoogle;
-    document.head.appendChild(script);
-    return () => { document.head.removeChild(script); };
-  }, []);
-
-  function initGoogle() {
-    if (!window.google) return;
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleCredentialResponse,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-    setSdkReady(true);
-  }
-
-  async function handleCredentialResponse(response: any) {
-    try {
-      // Send the Google JWT token to your backend
-      const result = await api.googleAuth(response.credential);
-      if (result.success) {
-        localStorage.setItem("access_token", result.data.access);
-        localStorage.setItem("refresh_token", result.data.refresh);
-        localStorage.setItem("user", JSON.stringify(result.data.user));
-        onSuccess(result.data);
-      } else {
-        onError(result.message || "Google sign-in failed");
-      }
-    } catch {
-      onError("Google authentication failed. Please try again.");
-    }
-  }
-
-  function handleClick() {
-    if (!window.google) {
-      onError("Google SDK not loaded. Check your internet connection.");
-      return;
-    }
-    window.google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // Fallback: open Google OAuth popup
-        window.google.accounts.id.renderButton(btnRef.current, {
-          theme: "outline", size: "large", width: 320,
-        });
-      }
-    });
-  }
-
-  return (
-    <button
-      ref={btnRef}
-      onClick={handleClick}
-      disabled={!sdkReady}
-      style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 10, padding: "11px 20px", background: sdkReady ? "#fff" : "#F3F4F6",
-        border: "1.5px solid #E5E7EB", borderRadius: 10, cursor: sdkReady ? "pointer" : "not-allowed",
-        fontSize: 14, fontWeight: 600, color: sdkReady ? "#374151" : "#9CA3AF",
-        fontFamily: "inherit", transition: "all 0.2s",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        opacity: sdkReady ? 1 : 0.6,
-      }}
-      onMouseEnter={(e) => { if (sdkReady) { e.currentTarget.style.background = "#F9FAFB"; e.currentTarget.style.borderColor = "#D1D5DB"; } }}
-      onMouseLeave={(e) => { if (sdkReady) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#E5E7EB"; } }}
-    >
-      <GoogleIcon />
-      {sdkReady ? label : "Loading Google…"}
-    </button>
-  );
-}
-
 // ─── Shared Input component ───────────────────────────────────────────────────
 interface InputProps {
   label: any;
@@ -267,17 +166,6 @@ function Input({ label, type = "text", value, onChange, placeholder, error, hint
       </div>
       {error && <p style={{ margin: "4px 0 10px", fontSize: 12, color: "#EF4444" }}>{error}</p>}
       {hint && !error && <p style={{ margin: "4px 0 10px", fontSize: 12, color: "#9CA3AF" }}>{hint}</p>}
-    </div>
-  );
-}
-
-// ─── Divider ──────────────────────────────────────────────────────────────────
-function Divider({ text = "or" }: { text?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
-      <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
-      <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>{text}</span>
-      <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
     </div>
   );
 }
@@ -626,7 +514,14 @@ function LoginPage({ onNavigate }: { onNavigate: (path: string) => void }) {
   };
 
   const redirectByRole = (role: string) => {
-    const routes: Record<string, string> = { admin: "/admin/dashboard", advocate: "/advocate/dashboard", user: "/dashboard" };
+    const routes: Record<string, string> = {
+      super_admin: "/admin/dashboard",
+      admin: "/admin/dashboard",
+      lawyer: "/advocate/dashboard",
+      advocate: "/advocate/dashboard",
+      user: "/dashboard",
+      citizen: "/dashboard",
+    };
     window.location.href = routes[role] || "/dashboard";
   };
 

@@ -1,0 +1,3 @@
+{
+  "ignorePatterns": ["apps/fumadocs/src/routeTree.gen.ts"]
+}

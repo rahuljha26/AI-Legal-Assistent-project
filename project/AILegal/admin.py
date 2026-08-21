@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, AdviceHistory, Document, Case, EmailLog
+from .models import User, AdviceHistory, Document, Case, EmailLog, Announcement
 
 
 @admin.register(User)
@@ -39,4 +39,12 @@ class EmailLogAdmin(admin.ModelAdmin):
     list_display = ('user', 'to_email', 'email_type', 'status', 'created_at')
     list_filter = ('email_type', 'status')
     search_fields = ('to_email',)
+    ordering = ('-created_at',)
+
+
+@admin.register(Announcement)
+class AnnouncementAdmin(admin.ModelAdmin):
+    list_display = ('title', 'tag', 'created_at')
+    list_filter = ('tag',)
+    search_fields = ('title', 'content')
     ordering = ('-created_at',)

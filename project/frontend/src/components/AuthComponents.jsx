@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "239460814371-37p3163iq29chuf504e2rh1hdrnbbgtl.apps.googleusercontent.com";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 export const GoogleIcon = () => (

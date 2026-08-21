@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar, Toast, useToast, Modal } from '../components/index';
+import NotificationBell from '../components/NotificationBell';
 import { adminAPI } from '../services/api';
 
 export default function AdminDashboard() {
@@ -66,13 +67,16 @@ export default function AdminDashboard() {
             <h1 className="text-lg font-bold text-white">Admin Dashboard</h1>
             <p className="text-slate-400 text-xs">Manage users, verify advocates, and monitor platform health</p>
           </div>
-          {pending.length>0 && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl animate-pulse"
-              style={{ background:'rgba(245,166,35,.1)', border:'1px solid rgba(245,166,35,.3)' }}>
-              <span className="text-amber-400 text-sm">⏳</span>
-              <span className="text-amber-300 text-sm font-medium">{pending.length} pending verification{pending.length>1?'s':''}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            {pending.length>0 && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl animate-pulse"
+                style={{ background:'rgba(245,166,35,.1)', border:'1px solid rgba(245,166,35,.3)' }}>
+                <span className="text-amber-400 text-sm">⏳</span>
+                <span className="text-amber-300 text-sm font-medium">{pending.length} pending verification{pending.length>1?'s':''}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="p-8 max-w-6xl mx-auto">
@@ -100,10 +104,14 @@ export default function AdminDashboard() {
                     <div key={u.id} className="flex items-center justify-between p-4 rounded-2xl"
                       style={{ background:'rgba(15,29,58,.6)', border:'1px solid rgba(245,166,35,.12)' }}>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm"
-                          style={{ background:'linear-gradient(135deg,rgba(168,85,247,.3),rgba(79,110,247,.3))', color:'#c084fc' }}>
-                          {u.full_name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()}
-                        </div>
+                        {u.profile_picture ? (
+                          <img src={u.profile_picture} alt={u.full_name} className="w-10 h-10 rounded-xl object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm"
+                            style={{ background:'linear-gradient(135deg,rgba(168,85,247,.3),rgba(79,110,247,.3))', color:'#c084fc' }}>
+                            {u.full_name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <p className="text-white text-sm font-medium">{u.full_name}</p>
                           <p className="text-slate-500 text-xs">{u.email} · {days}d ago {days>3&&<span style={{color:'#f87171'}}>⚠ Urgent</span>}</p>
@@ -142,10 +150,14 @@ export default function AdminDashboard() {
                   {users.map((u:any)=>(
                     <div key={u.id} className="table-row px-6 py-4 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0"
-                          style={{ background:'linear-gradient(135deg,rgba(79,110,247,.3),rgba(124,58,237,.3))', color:'#93c5fd' }}>
-                          {u.full_name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()}
-                        </div>
+                        {u.profile_picture ? (
+                          <img src={u.profile_picture} alt={u.full_name} className="w-9 h-9 rounded-xl object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0"
+                            style={{ background:'linear-gradient(135deg,rgba(79,110,247,.3),rgba(124,58,237,.3))', color:'#93c5fd' }}>
+                            {u.full_name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <p className="text-slate-200 text-sm font-medium truncate">{u.full_name}</p>
                           <p className="text-slate-500 text-xs truncate">{u.email}</p>

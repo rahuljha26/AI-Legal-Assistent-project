@@ -3,12 +3,17 @@ import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
-interface AuthUser {
+export type RoleType = "super_admin" | "admin" | "lawyer" | "advocate" | "citizen" | "user";
+
+export interface AuthUser {
   id: string;
   full_name: string;
   email: string;
-  role: "admin" | "advocate" | "user";
+  role: RoleType;
+  role_code?: string;
   is_verified: boolean;
+  profile_picture?: string;
+  permissions?: string[];
 }
 
 interface AuthContextType {
@@ -16,8 +21,11 @@ interface AuthContextType {
   isLoggedIn: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: (token: string) => Promise<AuthUser>;
   logout: () => void;
   refreshUser: () => void;
+  hasPermission: (permissionCode: string) => boolean;
+  hasRole: (...allowedRoles: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -41,11 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Call Django login API
     const response = await axios.post(
       `${API_BASE}/auth/login/`,
       { email: email.trim().toLowerCase(), password },
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json", "Bypass-Tunnel-Reminder": "1" } }
     );
 
     const { success, data, message } = response.data;
@@ -54,13 +61,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message || "Login failed");
     }
 
-    // Save tokens and user to localStorage
     localStorage.setItem("access_token",  data.access);
     localStorage.setItem("refresh_token", data.refresh);
     localStorage.setItem("user",          JSON.stringify(data.user));
 
-    // Update React state
     setUser(data.user);
+  };
+
+  const googleLogin = async (token: string): Promise<AuthUser> => {
+    const response = await axios.post(
+      `${API_BASE}/auth/google/`,
+      { token },
+      { headers: { "Content-Type": "application/json", "Bypass-Tunnel-Reminder": "1" } }
+    );
+
+    const { success, data, message } = response.data;
+
+    if (!success || !data) {
+      throw new Error(message || "Google account verification failed");
+    }
+
+    localStorage.setItem("access_token",  data.access);
+    localStorage.setItem("refresh_token", data.refresh);
+    localStorage.setItem("user",          JSON.stringify(data.user));
+
+    setUser(data.user);
+    return data.user;
   };
 
   const logout = () => {
@@ -70,13 +96,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  // Re-reads the user from localStorage so that profile updates are
-  // immediately reflected in the UI without a full page reload.
   const refreshUser = () => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
-      try { setUser(JSON.parse(savedUser)); } catch { /* ignore corrupt data */ }
+      try { setUser(JSON.parse(savedUser)); } catch { /* ignore */ }
     }
+  };
+
+  const hasPermission = (permissionCode: string): boolean => {
+    if (!user) return false;
+    if (user.role === "super_admin" || user.permissions?.includes("*")) return true;
+    return user.permissions ? user.permissions.includes(permissionCode) : false;
+  };
+
+  const hasRole = (...allowedRoles: string[]): boolean => {
+    if (!user) return false;
+    const currentRole = (user.role_code || user.role || "").toLowerCase();
+    
+    // Normalize aliases bi-directionally
+    const normalized = allowedRoles.map(r => r.toLowerCase());
+    if (normalized.includes("lawyer") || normalized.includes("advocate")) {
+      normalized.push("lawyer", "advocate");
+    }
+    if (normalized.includes("citizen") || normalized.includes("user")) {
+      normalized.push("citizen", "user");
+    }
+
+    if (currentRole === "super_admin") return true;
+    return normalized.includes(currentRole);
   };
 
   return (
@@ -85,8 +132,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoggedIn: !!user,
       isLoading,
       login,
+      googleLogin,
       logout,
       refreshUser,
+      hasPermission,
+      hasRole,
     }}>
       {children}
     </AuthContext.Provider>

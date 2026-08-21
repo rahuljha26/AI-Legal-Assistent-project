@@ -30,10 +30,16 @@ def draft_email_with_gemini(user_name: str, email_type: str, raw_content: dict) 
         user_prompt += f"Where to File: {raw_content.get('where_to_file', '')}\\n"
         user_prompt += f"Disclaimer: {raw_content.get('disclaimer', '')}\\n"
     elif email_type == 'case_summary':
-        user_prompt += f"Case Details: {raw_content.get('case_details', '')}\\n"
-        user_prompt += f"Next Steps: {raw_content.get('next_steps', [])}\\n"
+        user_prompt += f"Case Details: {raw_content.get('case_details', '')}\n"
+        user_prompt += f"Next Steps: {raw_content.get('next_steps', [])}\n"
+    elif email_type == 'lawyer_communication':
+        user_prompt += f"Sender (User): {raw_content.get('user_name', '')} ({raw_content.get('user_email', '')})\n"
+        user_prompt += f"Recipient (Lawyer/Authority): {raw_content.get('lawyer_name', 'Advocate')} ({raw_content.get('to_email', '')})\n"
+        user_prompt += f"Case Context: {raw_content.get('case_situation', '')}\n"
+        user_prompt += f"Urgency: {raw_content.get('urgency', 'Normal')}\n"
+        user_prompt += f"Specific Ask: {raw_content.get('specific_ask', '')}\n"
     else:
-        user_prompt += f"Document Summary: {str(raw_content)[:500]}\\n"
+        user_prompt += f"Document Summary: {str(raw_content)[:500]}\n"
         
     user_prompt += "\\nWrite in clear paragraphs. Use numbered list for steps.\\nKeep tone professional and compassionate.\\nOutput only the email body text, no subject line, no greeting."
     

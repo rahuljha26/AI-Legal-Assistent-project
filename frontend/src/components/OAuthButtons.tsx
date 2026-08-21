@@ -1,17 +1,9 @@
 /**
  * OAuthButtons.tsx
  * Reusable Google + GitHub OAuth login buttons for the AI Legal Assistant.
- *
- * Usage:
- *   <OAuthButtons
- *     onSuccess={(userData) => { ... }}
- *     onError={(msg) => { ... }}
- *     googleLabel="Continue with Google"
- *     githubLabel="Continue with GitHub"
- *   />
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -25,6 +17,7 @@ export interface OAuthUser {
   email: string;
   role: "admin" | "advocate" | "user";
   is_verified: boolean;
+  profile_picture?: string;
 }
 
 interface OAuthButtonsProps {
@@ -61,61 +54,6 @@ const GitHubIcon = () => (
   </svg>
 );
 
-// ─── Shared button style ──────────────────────────────────────────────────────
-
-function OAuthBtn({
-  onClick,
-  disabled,
-  icon,
-  label,
-  loadingLabel,
-  isLoading,
-  style,
-}: {
-  onClick: () => void;
-  disabled: boolean;
-  icon: React.ReactNode;
-  label: string;
-  loadingLabel?: string;
-  isLoading?: boolean;
-  style?: React.CSSProperties;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const base: React.CSSProperties = {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: "11px 20px",
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 600,
-    fontFamily: "inherit",
-    cursor: disabled ? "not-allowed" : "pointer",
-    transition: "all 0.2s",
-    opacity: disabled ? 0.55 : 1,
-    ...style,
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        ...base,
-        ...(hovered && !disabled ? { filter: "brightness(0.95)", transform: "translateY(-1px)" } : {}),
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {icon}
-      {isLoading ? (loadingLabel ?? "Signing in…") : label}
-    </button>
-  );
-}
-
 // ─── Spinner ──────────────────────────────────────────────────────────────────
 
 const Spinner = () => (
@@ -143,10 +81,6 @@ export function OAuthDivider({ text = "or" }: { text?: string }) {
 
 // ─── Google Button ────────────────────────────────────────────────────────────
 
-declare global {
-  interface Window { google: any; }
-}
-
 function GoogleOAuthButton({
   onSuccess,
   onError,
@@ -156,69 +90,134 @@ function GoogleOAuthButton({
   onError: (msg: string) => void;
   label: string;
 }) {
-  const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
+  const popupRef = useRef<Window | null>(null);
+  const timerRef = useRef<number | null>(null);
 
-  const handleCredential = useCallback(async (response: { credential: string }) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/auth/google/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: response.credential }),
-      }).then((r) => r.json());
-
-      if (res.success) {
-        saveAuthData(res.data);
-        onSuccess(res.data.user);
-      } else {
-        onError(res.message || "Google sign-in failed");
-      }
-    } catch {
-      onError("Google authentication failed. Please try again.");
-    } finally {
-      setLoading(false);
+  const cleanup = () => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }, [onSuccess, onError]);
+  };
 
   useEffect(() => {
-    function init() {
-      if (!window.google || !GOOGLE_CLIENT_ID) return;
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleCredential,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-      setReady(true);
-    }
+    const handler = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
 
-    if (window.google) { init(); return; }
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = init;
-    document.head.appendChild(script);
-    return () => { try { document.head.removeChild(script); } catch {} };
-  }, [handleCredential]);
+      if (event.data?.type === "GOOGLE_OAUTH_ERROR") {
+        cleanup();
+        setLoading(false);
+        onError(event.data.error || "Google sign-in was cancelled.");
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.close();
+        }
+        return;
+      }
+
+      if (event.data?.type !== "GOOGLE_OAUTH_TOKEN") return;
+
+      const token = event.data.token as string;
+      cleanup();
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.close();
+      }
+      setLoading(true);
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/google/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Bypass-Tunnel-Reminder": "1" },
+          body: JSON.stringify({ token }),
+        });
+
+        const res = await response.json();
+
+        if (res.success && res.data) {
+          if (res.data.requires_2fa) {
+            window.location.href = `/verify-otp?email=${encodeURIComponent(res.data.email)}`;
+            return;
+          }
+          saveAuthData(res.data);
+          onSuccess(res.data.user);
+        } else {
+          onError(res.message || "Google account verification failed.");
+        }
+      } catch (err: unknown) {
+        if (!window.navigator.onLine) {
+          onError("Google sign-in could not connect to the server. Check your network.");
+        } else {
+          onError("Server authentication failed. Please try again.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+      cleanup();
+    };
+  }, [onSuccess, onError]);
 
   const handleClick = () => {
-    if (!ready || loading) return;
-    window.google.accounts.id.prompt((n: any) => {
-      if (n.isNotDisplayed() || n.isSkippedMoment()) {
-        onError("Google sign-in was blocked. Try disabling popup blockers.");
-      }
+    if (!GOOGLE_CLIENT_ID) {
+      onError("Google OAuth is not configured. Missing VITE_GOOGLE_CLIENT_ID.");
+      return;
+    }
+    if (loading) return;
+
+    cleanup();
+    setLoading(true);
+
+    const callbackUrl = `${window.location.origin}/oauth/google/callback`;
+    const nonce = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    const state = Math.random().toString(36).substring(2);
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: callbackUrl,
+      response_type: "id_token",
+      scope: "openid email profile",
+      prompt: "select_account",
+      nonce: nonce,
+      state: state,
     });
+
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    const w = 550, h = 650;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+
+    const popup = window.open(
+      url, "google-oauth",
+      `width=${w},height=${h},left=${left},top=${top},resizable,scrollbars`
+    );
+
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      setLoading(false);
+      onError("Popup was blocked by the browser. Please allow popups for this site.");
+      return;
+    }
+
+    popupRef.current = popup;
+
+    // Monitor if the user manually closes the popup window
+    timerRef.current = window.setInterval(() => {
+      if (popup.closed) {
+        cleanup();
+        setLoading(false);
+      }
+    }, 1000);
   };
 
   return (
     <OAuthBtn
       onClick={handleClick}
-      disabled={!ready || loading}
+      disabled={loading}
       isLoading={loading}
       loadingLabel="Signing in with Google…"
-      label={ready ? label : "Loading Google…"}
+      label={label}
       icon={loading ? <Spinner /> : <GoogleIcon />}
       style={{
         background: "#fff",
@@ -232,6 +231,56 @@ function GoogleOAuthButton({
 
 // ─── GitHub Button ────────────────────────────────────────────────────────────
 
+function OAuthBtn({
+  onClick,
+  disabled,
+  icon,
+  label,
+  loadingLabel,
+  isLoading,
+  style,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  icon: React.ReactNode;
+  label: string;
+  loadingLabel?: string;
+  isLoading?: boolean;
+  style?: React.CSSProperties;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        padding: "11px 20px",
+        borderRadius: 10,
+        fontSize: 14,
+        fontWeight: 600,
+        fontFamily: "inherit",
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "all 0.2s",
+        opacity: disabled ? 0.55 : 1,
+        filter: hovered && !disabled ? "brightness(0.9)" : "none",
+        transform: hovered && !disabled ? "translateY(-1px)" : "none",
+        ...style,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {icon}
+      {isLoading ? (loadingLabel ?? "Signing in…") : label}
+    </button>
+  );
+}
+
 function GitHubOAuthButton({
   onSuccess,
   onError,
@@ -243,9 +292,7 @@ function GitHubOAuthButton({
 }) {
   const [loading, setLoading] = useState(false);
   const popupRef = useRef<Window | null>(null);
-  const listenerRef = useRef<((e: MessageEvent) => void) | null>(null);
 
-  // Listen for the authorization code sent back from the OAuth callback page
   useEffect(() => {
     const handler = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -258,7 +305,7 @@ function GitHubOAuthButton({
       try {
         const res = await fetch(`${API_BASE}/auth/github/`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Bypass-Tunnel-Reminder": "1" },
           body: JSON.stringify({ code }),
         }).then((r) => r.json());
 
@@ -275,7 +322,6 @@ function GitHubOAuthButton({
       }
     };
 
-    listenerRef.current = handler;
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [onSuccess, onError]);
@@ -287,7 +333,6 @@ function GitHubOAuthButton({
     }
     if (loading) return;
 
-    // Build GitHub authorization URL
     const callbackUrl = `${window.location.origin}/oauth/github/callback`;
     const params = new URLSearchParams({
       client_id: GITHUB_CLIENT_ID,
@@ -301,8 +346,7 @@ function GitHubOAuthButton({
     const left = window.screenX + (window.outerWidth - w) / 2;
     const top = window.screenY + (window.outerHeight - h) / 2;
     popupRef.current = window.open(
-      url,
-      "github-oauth",
+      url, "github-oauth",
       `width=${w},height=${h},left=${left},top=${top},resizable,scrollbars`
     );
   };
@@ -325,7 +369,7 @@ function GitHubOAuthButton({
   );
 }
 
-// ─── Main Export: OAuthButtons ────────────────────────────────────────────────
+// ─── Main Export ──────────────────────────────────────────────────────────────
 
 export default function OAuthButtons({
   onSuccess,

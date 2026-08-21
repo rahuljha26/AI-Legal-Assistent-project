@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar, Toast, useToast, Modal } from '../components/index';
+import NotificationBell from '../components/NotificationBell';
 import { adviceAPI, emailAPI } from '../services/api';
 
 const SUGGESTIONS = [
@@ -139,7 +140,8 @@ export default function AiChat() {
               <p className="text-white font-bold text-sm">AI Legal Chat</p>
               <p className="text-slate-500 text-xs">All conversations saved to MongoDB</p>
             </div>
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="ml-auto flex items-center gap-2">
+              <NotificationBell />
               <div className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow:'0 0 6px #34d399' }} />
               <span className="text-slate-400 text-xs">Online</span>
             </div>
@@ -184,10 +186,14 @@ export default function AiChat() {
                 {m.role==='user' ? <p className="text-slate-100 text-sm">{m.text}</p> : <AiBubble msg={m} />}
               </div>
               {m.role==='user' && (
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-1"
-                  style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)' }}>
-                  {user?.full_name?.charAt(0)||'U'}
-                </div>
+                user?.profile_picture ? (
+                  <img src={user.profile_picture} alt={user?.full_name} className="w-8 h-8 rounded-xl object-cover flex-shrink-0 mt-1" />
+                ) : (
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-1"
+                    style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)' }}>
+                    {user?.full_name?.charAt(0)||'U'}
+                  </div>
+                )
               )}
             </div>
           ))}

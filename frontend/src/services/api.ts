@@ -2,7 +2,13 @@ import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
-const api = axios.create({ baseURL: BASE_URL });
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    // Required to bypass localtunnel's verification page during development
+    'Bypass-Tunnel-Reminder': '1',
+  },
+});
 
 // ── Request interceptor: attach Bearer token ──────────────────────────────────
 api.interceptors.request.use((config) => {
@@ -37,7 +43,7 @@ api.interceptors.response.use(
       }
       refreshing = true;
       try {
-        const { data } = await axios.post(`${BASE_URL}/auth/token/refresh/`, { refresh: refreshToken });
+        const { data } = await axios.post(`${BASE_URL}/auth/token/refresh/`, { refresh: refreshToken }, { headers: { 'Bypass-Tunnel-Reminder': '1' } });
         const newAccess = data.access;
         localStorage.setItem('access_token', newAccess);
         queue.forEach((cb) => cb(newAccess));
@@ -120,4 +126,68 @@ export const adminAPI = {
   verifyUser: (id: number) => api.patch(`/admin/users/${id}/verify/`),
   deleteUser: (id: number) => api.delete(`/admin/users/${id}/`),
   stats: () => api.get('/admin/stats/'),
+  createAnnouncement: (data: { title: string; content: string; tag: string }) =>
+    api.post('/admin/announcements/', data),
+  deleteAnnouncement: (id: number) => api.delete(`/admin/announcements/${id}/`),
+};
+
+// ── Announcements API ─────────────────────────────────────────────────────────
+export const announcementsAPI = {
+  list: () => api.get('/announcements/'),
+};
+
+// ── Nyaya Voice Assistant API ─────────────────────────────────────────────────
+export const nyayaAPI = {
+  /**
+   * Step 3: Ask Gemini to draft an email body from the user's situation context.
+   */
+  draft: (data: {
+    to_email: string;
+    lawyer_name?: string;
+    case_situation: string;
+    urgency?: string;
+    specific_ask?: string;
+    user_name?: string;
+    user_email?: string;
+  }) => api.post('/nyaya/draft/', data),
+
+  /**
+   * Step 7: Send the confirmed email. Requires confirmed=true — backend blocks otherwise.
+   * Supports multipart for file attachments.
+   */
+  send: (data: {
+    to_email: string;
+    lawyer_name?: string;
+    subject: string;
+    body: string;
+    case_situation?: string;
+    urgency?: string;
+    specific_ask?: string;
+    attachments_json?: string[];
+    confirmed: true;
+    files?: File[];
+  }) => {
+    const { files, ...rest } = data;
+    if (files && files.length > 0) {
+      const fd = new FormData();
+      Object.entries(rest).forEach(([k, v]) => {
+        if (Array.isArray(v)) fd.append(k, JSON.stringify(v));
+        else fd.append(k, String(v));
+      });
+      files.forEach(f => fd.append('files', f));
+      return api.post('/nyaya/send/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    }
+    return api.post('/nyaya/send/', rest);
+  },
+
+  /**
+   * Step 6: Get 2-3 AI-generated next-step suggestions for the user's situation.
+   */
+  suggest: (case_situation: string) =>
+    api.post('/nyaya/suggest/', { case_situation }),
+
+  /**
+   * Step 8: Retrieve the logged-in user's Nyaya email history.
+   */
+  history: () => api.get('/nyaya/history/'),
 };

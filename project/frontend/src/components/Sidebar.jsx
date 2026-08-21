@@ -62,7 +62,11 @@ export default function Sidebar() {
       </div>
 
       <div className="sidebar-profile">
-        <div className="avatar" style={{ background: user?.role === 'admin' ? '#DC2626' : user?.role === 'advocate' ? '#7C3AED' : 'var(--primary)' }}>{initials}</div>
+        {user?.profile_picture ? (
+          <img src={user.profile_picture} alt={user?.full_name} className="avatar" style={{ objectFit: 'cover' }} />
+        ) : (
+          <div className="avatar" style={{ background: user?.role === 'admin' ? '#DC2626' : user?.role === 'advocate' ? '#7C3AED' : 'var(--primary)' }}>{initials}</div>
+        )}
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div className="name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {user?.role === 'admin' ? 'Super Admin' : user?.role === 'advocate' ? `Adv. ${user?.full_name?.split(' ')[0] || 'User'}` : user?.full_name || 'User'}

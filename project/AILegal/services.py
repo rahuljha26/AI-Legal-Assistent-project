@@ -65,7 +65,7 @@ def get_gemini_advice(query):
         )
 
         response = client.models.generate_content(
-            model="gemini-flash-latest",
+            model="gemini-2.5-flash",
             contents=context,
             config=types.GenerateContentConfig(
                 temperature=0.2,
@@ -111,7 +111,7 @@ def generate_legal_document_text(doc_type, details):
     prompt = f"Generate a proper Indian legal document.\nType: {doc_type}\nDetails: {json.dumps(details)}\nRespond ONLY with the document text."
     try:
         response = client.models.generate_content(
-            model="gemini-flash-latest",
+            model="gemini-2.5-flash",
             contents=prompt
         )
         return response.text

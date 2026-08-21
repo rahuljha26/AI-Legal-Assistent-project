@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar, Toast, useToast, Modal } from '../components/index';
+import NotificationBell from '../components/NotificationBell';
 import { adviceAPI, emailAPI } from '../services/api';
 
 const QUICK = ['Tenant rights in India','Consumer complaint procedure','Cheque bounce legal action','Workplace harassment laws','Property dispute resolution'];
@@ -100,6 +101,7 @@ export default function UserDashboard() {
               <span className="text-indigo-300 text-xs font-medium">{remaining}/20</span>
               <span className="text-slate-500 text-xs">today</span>
             </div>
+            <NotificationBell />
           </div>
         </div>
 

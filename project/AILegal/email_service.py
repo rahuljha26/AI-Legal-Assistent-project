@@ -25,7 +25,7 @@ def validate_email_format(email: str) -> bool:
     pattern = r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
-def send_legal_email(user, to_email: str, email_type: str, context: dict, attach_pdf: bool = False) -> dict:
+def send_legal_email(user, to_email: str, email_type: str, context: dict, attach_pdf: bool = False, extra_attachments: list = None) -> dict:
     """
     Sends an email with optional Gemini AI drafted body and PDF attachment.
     Logs the outcome to the EmailLog model.
@@ -36,16 +36,17 @@ def send_legal_email(user, to_email: str, email_type: str, context: dict, attach
     subject_map = {
         'advice': "Your AI Legal Advice — AI Legal Assistant",
         'document': "Your Generated Legal Document — AI Legal Assistant",
-        'case_summary': "Case Summary Report — AI Legal Assistant"
+        'case_summary': "Case Summary Report — AI Legal Assistant",
+        'lawyer_communication': context.get('subject', "Legal Inquiry — Nyaya AI Assistant")
     }
     subject = subject_map.get(email_type, "Update from AI Legal Assistant")
     
     gemini_used = False
-    ai_drafted_body = None
+    ai_drafted_body = context.get('ai_drafted_body')
     
     # 1. Draft with Gemini (limit to 10 per day per user for testing quota)
-    # Fast skip if user has hit their auto-drafting quota
-    if user:
+    # Fast skip if user has hit their auto-drafting quota or if body is pre-drafted
+    if user and not ai_drafted_body:
         from django.utils import timezone
         from datetime import timedelta
         today = timezone.now() - timedelta(hours=24)
@@ -88,6 +89,15 @@ def send_legal_email(user, to_email: str, email_type: str, context: dict, attach
                 msg.attach(part)
         except Exception as e:
             print(f"PDF Attachment failed: {e}")
+            
+    if extra_attachments:
+        for attachment in extra_attachments:
+            try:
+                part = MIMEApplication(attachment['content'], Name=attachment['filename'])
+                part['Content-Disposition'] = f'attachment; filename="{attachment["filename"]}"'
+                msg.attach(part)
+            except Exception as e:
+                print(f"Extra attachment failed: {e}")
             
     # 4. Connect to SMTP and Send with 3 Retry Logic
     max_retries = 3

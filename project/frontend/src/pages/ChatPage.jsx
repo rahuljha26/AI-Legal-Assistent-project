@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { adviceAPI } from '../api';
+import { adviceAPI, youtubeAPI } from '../api';
 import EmailModal from '../components/EmailModal';
 
 const CHIPS = ['Property Issue','Consumer Rights','FIR / Police','Family Law','Cyber Crime'];
@@ -33,6 +33,7 @@ export default function ChatPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [currentAdviceData, setCurrentAdviceData] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
+  const [videoMap, setVideoMap] = useState({});   // msgIndex -> videos[]
 
   const firstName = user?.full_name?.split(' ')[0] || 'Rahul';
 
@@ -71,7 +72,21 @@ export default function ChatPage() {
       const aiResponse = adviceData?.ai_response ?? res.data?.data ?? res.data;
       const parsedAdvice = typeof aiResponse === 'string' ? JSON.parse(aiResponse) : aiResponse;
       const adviceToStore = { id: adviceData?.id, ...parsedAdvice };
-      setMessages(prev => [...prev, { role:'ai', advice: adviceToStore, time: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) }]);
+      const newMsgIndex = messages.length + 1;  // +1 for the user msg already added
+      setMessages(prev => {
+        const updated = [...prev, { role:'ai', advice: adviceToStore, time: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) }];
+        return updated;
+      });
+      // Fetch YouTube videos in background using the applicable law or query
+      const ytQuery = parsedAdvice?.applicable_law || parsedAdvice?.constitution_reference || q;
+      youtubeAPI.search(ytQuery, 3)
+        .then(ytRes => {
+          const vids = ytRes.data?.data?.videos || [];
+          if (vids.length > 0) {
+            setVideoMap(prev => ({ ...prev, [newMsgIndex]: vids }));
+          }
+        })
+        .catch(() => { /* silently ignore YouTube failures */ });
     } catch (err) {
       console.error('AI advice error:', err?.response?.data || err.message);
       setMessages(prev => [...prev, { role:'ai', isError: true, content: 'Sorry, something went wrong. Please check your connection and try again.', originalQuery: q, time: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) }]);
@@ -232,6 +247,50 @@ export default function ChatPage() {
                     )}
 
                   </div>
+
+                  {/* YouTube Video Recommendations */}
+                  {videoMap[i] && videoMap[i].length > 0 && (
+                    <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '12px', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="14" height="14" fill="#ff0000" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.07 0 12 0 12s0 3.93.501 5.814a3.016 3.016 0 0 0 2.122 2.136c1.872.55 9.377.55 9.377.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                        RELATED LEGAL VIDEOS
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                        {videoMap[i].map((video, vi) => (
+                          <a
+                            key={vi}
+                            href={video.video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', transition: 'transform 0.15s, border-color 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#ff0000'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                          >
+                            {video.thumbnail_url ? (
+                              <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#000' }}>
+                                <img src={video.thumbnail_url} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#ff0000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <svg width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ width: '100%', aspectRatio: '16/9', background: 'rgba(255,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="28" height="28" fill="#ff0000" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.07 0 12 0 12s0 3.93.501 5.814a3.016 3.016 0 0 0 2.122 2.136c1.872.55 9.377.55 9.377.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                              </div>
+                            )}
+                            <div style={{ padding: '10px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4, marginBottom: '4px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {video.title}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{video.channel_title}</div>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* AI Action Buttons */}
                   <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>

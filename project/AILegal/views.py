@@ -1,14 +1,10 @@
-import pymongo
 import os
 import json
 import smtplib
 import time
+import logging
 
-# Create your views here.
-server = pymongo.MongoClient("mongodb://localhost:27017/")
-db = server["school"]
-collection = db["user"]
-productscollection = db["products"]
+logger = logging.getLogger(__name__)
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, date
@@ -28,12 +24,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .models import User, AdviceHistory, Document, Case, EmailLog, ConstitutionArticle
+from .models import User, AdviceHistory, Document, Case, EmailLog, ConstitutionArticle, Announcement, NyayaEmailLog
 from .serializers import (
     SignupSerializer, LoginSerializer, UserSerializer,
     ChangePasswordSerializer, AdviceAskSerializer, AdviceHistorySerializer,
     DocumentGenerateSerializer, DocumentSerializer,
     CaseSerializer, EmailSendSerializer, AdminUserSerializer,
+    AnnouncementSerializer,
+    NyayaDraftSerializer, NyayaSendSerializer, NyayaEmailLogSerializer,
 )
 from .services import get_gemini_advice, generate_legal_document_text, create_pdf_buffer
 
@@ -136,6 +134,7 @@ class LoginView(APIView):
                     "email": user.email,
                     "role": user.role,
                     "is_verified": user.is_verified,
+                    "profile_picture": user.profile_picture,
                 }
             },
             "message": "Login successful"
@@ -196,60 +195,127 @@ class GoogleAuthView(APIView):
 
     Flow:
       1. Verify Google JWT token using google-auth library
-      2. Extract email, name, picture from payload
-      3. Find or create user in MongoDB (users collection)
-      4. Return Django JWT access + refresh tokens
+      2. Validate issuer, audience, expiration, email verification
+      3. Find user by google_id or verified email in database
+      4. Create user if new (default role: 'citizen'), or link Google account safely
+      5. Save google_id, email, name, profile_picture, auth_provider, last_login
+      6. Return Django JWT access + refresh tokens
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
         token = request.data.get("token")
         if not token:
+            logger.warning("[GOOGLE_AUTH] Stage: TOKEN_VALIDATION Status: FAILED Reason: missing_token")
             return error("Google token is required", 400)
 
+        google_client_id = getattr(settings, 'GOOGLE_CLIENT_ID', '') or os.environ.get('GOOGLE_CLIENT_ID', '')
+
         try:
-            # Verify the Google ID token
+            # Verify the Google ID token using Google's official auth library
             payload = id_token.verify_oauth2_token(
                 token,
                 google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
+                google_client_id if google_client_id else None,
             )
         except ValueError as e:
-            return error(f"Invalid Google token: {str(e)}", 401)
+            logger.warning(f"[GOOGLE_AUTH] Stage: TOKEN_VALIDATION Status: FAILED Reason: {str(e)}")
+            return error(f"Google account verification failed: {str(e)}", 401)
+        except Exception as e:
+            logger.error(f"[GOOGLE_AUTH] Stage: TOKEN_VALIDATION Status: FAILED Reason: {str(e)}")
+            return error("Server authentication failed during Google token verification", 500)
+
+        # Validate issuer
+        issuer = payload.get("iss", "")
+        if issuer not in ["accounts.google.com", "https://accounts.google.com"]:
+            logger.warning(f"[GOOGLE_AUTH] Stage: TOKEN_VALIDATION Status: FAILED Reason: invalid_issuer_{issuer}")
+            return error("Invalid token issuer", 401)
 
         # Extract user info from Google payload
-        google_email = payload.get("email", "").lower().strip()
-        google_name  = payload.get("name", "Google User")
-        is_verified  = payload.get("email_verified", False)
+        google_sub     = payload.get("sub", "")
+        google_email   = payload.get("email", "").lower().strip()
+        google_name    = payload.get("name", "Google User")
+        is_verified    = payload.get("email_verified", False)
+        google_picture = payload.get("picture", "")
 
         if not google_email:
+            logger.warning("[GOOGLE_AUTH] Stage: USER_CHECK Status: FAILED Reason: missing_email")
             return error("Google account has no email address", 400)
 
         if not is_verified:
+            logger.warning(f"[GOOGLE_AUTH] Stage: USER_CHECK Status: FAILED Reason: unverified_email_{google_email}")
             return error("Google email address is not verified", 400)
 
-        # Find or create user in MongoDB
-        user, created = User.objects.get_or_create(
-            email=google_email,
-            defaults={
-                "full_name": google_name,
-                "role": "user",          # default role for Google sign-ups
-                "is_verified": True,     # Google accounts are pre-verified
-            },
-        )
+        # 1. Find user by google_id
+        user = None
+        created = False
+        if google_sub:
+            user = User.objects.filter(google_id=google_sub).first()
 
-        # If existing user, keep their role — just update name if blank
-        if not created and not user.full_name:
-            user.full_name = google_name
-            user.is_verified = True
-            user.save()
+        # 2. If not found, find user by verified email
+        if not user:
+            user = User.objects.filter(email__iexact=google_email).first()
+            if user:
+                # Link existing user safely
+                user.google_id = google_sub or user.google_id
+                user.auth_provider = user.auth_provider or 'google'
+            else:
+                # 3. Create new user with default role 'citizen'
+                user = User.objects.create_user(
+                    email=google_email,
+                    password=None,
+                    full_name=google_name,
+                    role='citizen',
+                    is_verified=True,
+                    profile_picture=google_picture,
+                    google_id=google_sub,
+                    auth_provider='google',
+                )
+                created = True
+
+        # Update profile & last login
+        if not created:
+            updated = False
+            if google_sub and not user.google_id:
+                user.google_id = google_sub
+                updated = True
+            if not user.full_name and google_name:
+                user.full_name = google_name
+                updated = True
+            if google_picture and user.profile_picture != google_picture:
+                user.profile_picture = google_picture
+                updated = True
+            if not user.is_verified:
+                user.is_verified = True
+                updated = True
+            if updated:
+                user.save()
+
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
 
         # Check account is active
         if not user.is_active:
+            logger.warning(f"[GOOGLE_AUTH] Stage: ACCOUNT_STATUS Status: FAILED Reason: account_deactivated_{user.email}")
             return error("Your account has been deactivated. Contact support.", 403)
+
+        # Check if 2FA is enabled for this user
+        if user.two_factor_enabled:
+            logger.info(f"[GOOGLE_AUTH] Stage: 2FA_REQUIRED User: {user.email}")
+            return Response({
+                "success": True,
+                "data": {
+                    "requires_2fa": True,
+                    "email": user.email,
+                    "two_factor_method": user.two_factor_method
+                },
+                "message": "Two-factor authentication required."
+            })
 
         # Generate Django JWT tokens
         refresh = RefreshToken.for_user(user)
+
+        logger.info(f"[GOOGLE_AUTH] Stage: COMPLETED Status: SUCCESS User: {user.email} Role: {user.role} Created: {created}")
 
         return success(
             {
@@ -260,12 +326,35 @@ class GoogleAuthView(APIView):
                     "full_name": user.full_name,
                     "email": user.email,
                     "role": user.role,
+                    "role_code": user.get_role_code(),
                     "is_verified": user.is_verified,
+                    "profile_picture": user.profile_picture,
                 },
                 "is_new_user": created,
             },
             f"{'Welcome to AI Legal Assistant!' if created else 'Welcome back!'} Signed in with Google.",
         )
+
+
+class GoogleConfigStatusView(APIView):
+    """
+    GET /api/v1/auth/google/config-status/
+    Development-only diagnostic status endpoint.
+    NEVER exposes secrets or tokens.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        client_id = getattr(settings, 'GOOGLE_CLIENT_ID', '') or os.environ.get('GOOGLE_CLIENT_ID', '')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:5173/oauth/google/callback')
+
+        return Response({
+            "google_client_id_configured": bool(client_id),
+            "google_client_secret_configured": bool(client_secret),
+            "redirect_uri_configured": bool(redirect_uri),
+            "oauth_enabled": bool(client_id),
+        }, status=200)
 
 
 class GitHubAuthView(APIView):
@@ -345,6 +434,7 @@ class GitHubAuthView(APIView):
         gh_email    = gh_email.lower().strip()
         gh_name     = profile.get("name") or profile.get("login") or "GitHub User"
         gh_username = profile.get("login", "")
+        gh_picture  = profile.get("avatar_url", "")
 
         # Step 4: Find or create user
         user, created = User.objects.get_or_create(
@@ -353,13 +443,22 @@ class GitHubAuthView(APIView):
                 "full_name":   gh_name,
                 "role":        "user",
                 "is_verified": True,
+                "profile_picture": gh_picture,
             },
         )
 
         if not created:
+            updated = False
             if not user.full_name:
                 user.full_name   = gh_name
+                updated = True
+            if gh_picture and user.profile_picture != gh_picture:
+                user.profile_picture = gh_picture
+                updated = True
+            if not user.is_verified:
                 user.is_verified = True
+                updated = True
+            if updated:
                 user.save()
 
         if not user.is_active:
@@ -378,6 +477,7 @@ class GitHubAuthView(APIView):
                     "email":       user.email,
                     "role":        user.role,
                     "is_verified": user.is_verified,
+                    "profile_picture": user.profile_picture,
                 },
                 "github_username": gh_username,
                 "is_new_user": created,
@@ -888,12 +988,10 @@ class EmailSendView(APIView):
 # ─── Admin Views ──────────────────────────────────────────────────────────────
 
 class AdminUsersView(APIView):
-    permission_classes = [IsAuthenticated]
+    from .permissions import IsAdminUserRole
+    permission_classes = [IsAdminUserRole]
 
     def get(self, request):
-        if not is_admin(request.user):
-            return error('Admin access required.', status.HTTP_403_FORBIDDEN)
-
         role_filter = request.query_params.get('role')
         page = int(request.query_params.get('page', 1))
         page_size = 20
@@ -919,47 +1017,43 @@ class AdminUsersView(APIView):
 
 
 class AdminUserVerifyView(APIView):
-    permission_classes = [IsAuthenticated]
+    from .permissions import IsAdminUserRole
+    permission_classes = [IsAdminUserRole]
 
     def patch(self, request, pk):
-        if not is_admin(request.user):
-            return error('Admin access required.', status.HTTP_403_FORBIDDEN)
         try:
             user = User.objects.get(id=pk)
         except User.DoesNotExist:
             return error('User not found.', status.HTTP_404_NOT_FOUND)
         user.is_verified = True
         user.save()
-        return success(data=AdminUserSerializer(user).data, message='User verified in MongoDB.')
+        return success(data=AdminUserSerializer(user).data, message='User verified.')
 
 
 class AdminUserDeleteView(APIView):
-    permission_classes = [IsAuthenticated]
+    from .permissions import IsAdminUserRole
+    permission_classes = [IsAdminUserRole]
 
     def delete(self, request, pk):
-        if not is_admin(request.user):
-            return error('Admin access required.', status.HTTP_403_FORBIDDEN)
         try:
             user = User.objects.get(id=pk)
         except User.DoesNotExist:
             return error('User not found.', status.HTTP_404_NOT_FOUND)
         user.delete()
-        return success(message='User deleted from MongoDB.')
+        return success(message='User deleted.')
 
 
 class AdminStatsView(APIView):
-    permission_classes = [IsAuthenticated]
+    from .permissions import IsAdminUserRole
+    permission_classes = [IsAdminUserRole]
 
     def get(self, request):
-        if not is_admin(request.user):
-            return error('Admin access required.', status.HTTP_403_FORBIDDEN)
-
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         stats = {
-            'total_users': User.objects.filter(role='user').count(),
-            'total_advocates': User.objects.filter(role='advocate').count(),
-            'pending_verifications': User.objects.filter(role='advocate', is_verified=False).count(),
+            'total_users': User.objects.filter(role__in=['user', 'citizen']).count(),
+            'total_advocates': User.objects.filter(role__in=['advocate', 'lawyer']).count(),
+            'pending_verifications': User.objects.filter(role__in=['advocate', 'lawyer'], is_verified=False).count(),
             'ai_queries_today': AdviceHistory.objects.filter(created_at__gte=today_start).count(),
             'total_cases': Case.objects.count(),
             'documents_generated': Document.objects.count(),
@@ -1211,3 +1305,393 @@ class ConstitutionSearchView(APIView):
             },
             message=f'Found {total} article(s) matching your query.'
         )
+
+
+# ─── Announcements ────────────────────────────────────────────────────────────
+
+class AnnouncementListView(APIView):
+    """
+    GET /api/v1/announcements/
+    Returns latest 20 announcements for any logged-in user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        announcements = Announcement.objects.all()[:20]
+        return success(
+            data=AnnouncementSerializer(announcements, many=True).data,
+            message='Announcements retrieved.'
+        )
+
+
+class AdminAnnouncementView(APIView):
+    """
+    POST   /api/v1/admin/announcements/      – create new announcement (admin only)
+    DELETE /api/v1/admin/announcements/<pk>/ – delete announcement (admin only)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _check_admin(self, user):
+        if not is_admin(user):
+            return error('Admin access required.', 403)
+        return None
+
+    def post(self, request):
+        guard = self._check_admin(request.user)
+        if guard:
+            return guard
+        serializer = AnnouncementSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error('Validation failed.', 400, serializer.errors)
+        serializer.save()
+        return success(data=serializer.data, message='Announcement created.', status_code=201)
+
+    def delete(self, request, pk=None):
+        guard = self._check_admin(request.user)
+        if guard:
+            return guard
+        try:
+            ann = Announcement.objects.get(pk=pk)
+        except Announcement.DoesNotExist:
+            return error('Announcement not found.', 404)
+        ann.delete()
+        return success(message='Announcement deleted.')
+
+
+# ─── Nyaya Voice Assistant Views ──────────────────────────────────────────────
+
+import google.generativeai as _genai
+_genai.configure(api_key=os.environ.get('GEMINI_API_KEY', ''))
+
+
+class NyayaDraftView(APIView):
+    """
+    POST /api/v1/nyaya/draft/
+    Accepts user's legal situation context and uses Gemini AI to compose
+    a professional email body on the user's behalf.
+    Returns: { subject, body, suggested_actions }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = NyayaDraftSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error('Validation failed.', 400, serializer.errors)
+
+        d = serializer.validated_data
+        user = request.user
+        user_name = d.get('user_name') or getattr(user, 'full_name', user.email)
+        user_email = d.get('user_email') or user.email
+        lawyer_name = d.get('lawyer_name') or 'Respected Advocate'
+        situation = d['case_situation']
+        urgency = d.get('urgency', 'Normal')
+        specific_ask = d.get('specific_ask', '')
+
+        # --- Subject line ---
+        subject = f"Legal {d.get('urgency','Normal')} Enquiry — {user_name}"
+
+        # --- Gemini AI body draft ---
+        prompt = (
+            "You are Nyaya, a professional legal communication assistant for Dharma Vault AI Legal Assistant, "
+            "an Indian legal advisory platform. "
+            "Draft a clear, professional, respectful email body (no subject line, no greeting salutation) "
+            "on behalf of a citizen to a lawyer or authority. "
+            "Use simple, formal English. Do NOT invent facts, case numbers, or legal claims not stated. "
+            "Always end with: 'I look forward to your guidance. Please let me know a convenient time to discuss this matter further.' "
+            "Do not add any information that is not in the provided details.\n\n"
+            f"SENDER: {user_name} ({user_email})\n"
+            f"RECIPIENT: {lawyer_name} ({d['to_email']})\n"
+            f"URGENCY: {urgency}\n"
+            f"SITUATION: {situation}\n"
+            f"SPECIFIC ASK: {specific_ask}\n\n"
+            "Write only the email body paragraphs. No subject line, no greeting, no sign-off."
+        )
+
+        body = ''
+        try:
+            model = _genai.GenerativeModel('gemini-2.0-flash')
+            response = model.generate_content(prompt)
+            body = response.text.strip()
+        except Exception as e:
+            print(f'[NyayaDraft] Gemini failed: {e}')
+            body = (
+                f"I am writing to seek your legal guidance regarding the following matter:\n\n"
+                f"{situation}\n\n"
+                f"{specific_ask}\n\n"
+                "I look forward to your guidance. Please let me know a convenient time to discuss this matter further."
+            )
+
+        # --- AI next-step suggestions ---
+        suggestions = []
+        try:
+            sug_prompt = (
+                "Based on this legal situation described by an Indian citizen, "
+                "suggest exactly 3 concise, actionable next steps they can take. "
+                "Format: Return only a JSON array of 3 short strings, each max 15 words. "
+                "No numbering, no markdown, just the JSON array.\n\n"
+                f"Situation: {situation}"
+            )
+            sug_response = model.generate_content(sug_prompt)
+            raw = sug_response.text.strip()
+            # Strip markdown code block if present
+            if raw.startswith('```'):
+                raw = raw.split('```')[1]
+                if raw.startswith('json'):
+                    raw = raw[4:]
+            suggestions = json.loads(raw)
+            if not isinstance(suggestions, list):
+                suggestions = []
+        except Exception as e:
+            print(f'[NyayaDraft] Suggestions failed: {e}')
+            suggestions = [
+                'Consult a licensed advocate to evaluate your case.',
+                'Gather all relevant documents and evidence before proceeding.',
+                'Consider sending a formal legal notice via registered post.',
+            ]
+
+        return success(data={
+            'subject': subject,
+            'body': body,
+            'suggested_actions': suggestions,
+            'user_name': user_name,
+            'user_email': user_email,
+            'lawyer_name': lawyer_name,
+            'to_email': d['to_email'],
+            'urgency': urgency,
+        }, message='Email draft generated.')
+
+
+class NyayaSendView(APIView):
+    """
+    POST /api/v1/nyaya/send/
+    Sends the email ONLY if confirmed=True (Step 5 guardrail).
+    Logs the result in NyayaEmailLog.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, JSONParser]
+
+    def post(self, request):
+        serializer = NyayaSendSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error('Validation failed.', 400, serializer.errors)
+
+        d = serializer.validated_data
+        user = request.user
+        attachments = request.FILES.getlist('files')
+        attachment_names = [f.name for f in attachments]
+        attachment_names += d.get('attachments_json', [])
+
+        # Build context for email_service
+        context = {
+            'user_name': getattr(user, 'full_name', user.email),
+            'user_full_name': getattr(user, 'full_name', user.email),
+            'user_email': user.email,
+            'lawyer_name': d.get('lawyer_name', 'Advocate'),
+            'to_email': d['to_email'],
+            'subject': d['subject'],
+            'email_body': d['body'],
+            'ai_drafted_body': d['body'],
+            'attachments_list': attachment_names,
+            'case_situation': d.get('case_situation', ''),
+            'urgency': d.get('urgency', 'Normal'),
+            'specific_ask': d.get('specific_ask', ''),
+        }
+
+        # Read actual file contents for email attachment
+        extra_attachments = []
+        for f in attachments:
+            extra_attachments.append({
+                'filename': f.name,
+                'content': f.read()
+            })
+
+        from .email_service import send_legal_email
+        result = send_legal_email(
+            user=user,
+            to_email=d['to_email'],
+            email_type='lawyer_communication',
+            context=context,
+            attach_pdf=False,
+            extra_attachments=extra_attachments,
+        )
+
+        status_val = 'sent' if result['success'] else 'failed'
+        log = NyayaEmailLog.objects.create(
+            user=user,
+            to_email=d['to_email'],
+            lawyer_name=d.get('lawyer_name', ''),
+            subject=d['subject'],
+            body=d['body'],
+            case_situation=d.get('case_situation', ''),
+            urgency=d.get('urgency', 'Normal'),
+            specific_ask=d.get('specific_ask', ''),
+            attachments_json=attachment_names,
+            suggested_actions=[],
+            status=status_val,
+        )
+
+        if result['success']:
+            return success(
+                data={'log_id': log.id, 'to_email': d['to_email']},
+                message=f"Your email has been sent to {d['to_email']}",
+            )
+        return error(
+            f"Failed to send email: {result.get('error', 'Unknown error')}",
+            status_code=502,
+        )
+
+
+class NyayaSuggestView(APIView):
+    """
+    POST /api/v1/nyaya/suggest/
+    Returns 2-3 AI-generated next-step suggestions for the user's legal situation.
+    Used in Step 6 of the Nyaya workflow.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        situation = request.data.get('case_situation', '').strip()
+        if not situation or len(situation) < 10:
+            return error('Please describe your situation in at least 10 characters.', 400)
+
+        suggestions = []
+        try:
+            model = _genai.GenerativeModel('gemini-2.0-flash')
+            prompt = (
+                "Based on this legal situation described by an Indian citizen, "
+                "suggest exactly 3 concise, actionable next steps they can take. "
+                "Format: Return only a JSON array of 3 short strings, each max 20 words. "
+                "No numbering, no markdown, just the raw JSON array.\n\n"
+                f"Situation: {situation}"
+            )
+            response = model.generate_content(prompt)
+            raw = response.text.strip()
+            if raw.startswith('```'):
+                raw = raw.split('```')[1]
+                if raw.startswith('json'):
+                    raw = raw[4:]
+            suggestions = json.loads(raw)
+            if not isinstance(suggestions, list):
+                raise ValueError('Not a list')
+        except Exception as e:
+            print(f'[NyayaSuggest] Gemini failed: {e}')
+            suggestions = [
+                'Consult a licensed advocate to evaluate your case.',
+                'Gather all relevant documents and evidence before proceeding.',
+                'Consider sending a formal legal notice via registered post.',
+            ]
+
+        return success(data={'suggestions': suggestions[:3]}, message='Suggestions generated.')
+
+
+class NyayaHistoryView(APIView):
+    """
+    GET /api/v1/nyaya/history/
+    Returns the logged-in user's Nyaya email history for in-app display (Step 8).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        logs = NyayaEmailLog.objects.filter(user=request.user)[:20]
+        serializer = NyayaEmailLogSerializer(logs, many=True)
+        return success(data=serializer.data, message='Nyaya email history retrieved.')
+
+
+# ─── YouTube Search View ──────────────────────────────────────────────────────
+
+class YouTubeSearchView(APIView):
+    """
+    GET /api/v1/youtube/search/?q=<query>&max=<int>&lang=<code>
+
+    Searches YouTube for legal explainer videos matching the query.
+    Uses the YouTube Data API v3 (api-samples-master/python/search.py pattern).
+
+    Query Params:
+        q    (required) - search term, e.g. "IPC Section 420 cheating"
+        max  (optional) - max results, default 4, max 8
+        lang (optional) - BCP-47 language code: 'hi' (Hindi) or 'en' (English)
+
+    Returns:
+        { success: true, data: { videos: [...], query: str } }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .youtube_service import search_youtube_legal_videos
+
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return error('Query parameter "q" is required.', status.HTTP_400_BAD_REQUEST)
+
+        try:
+            max_results = min(int(request.query_params.get('max', 4)), 8)
+        except (ValueError, TypeError):
+            max_results = 4
+
+        language = request.query_params.get('lang', None)
+
+        videos = search_youtube_legal_videos(query, max_results=max_results, language=language)
+
+        return success(
+            data={'videos': videos, 'query': query},
+            message=f'{len(videos)} video(s) found for "{query}".',
+        )
+
+
+# ─── RBAC Role Views ──────────────────────────────────────────────────────────
+
+class RoleMatrixView(APIView):
+    """
+    GET /api/auth/roles/
+    Returns system RBAC permission matrix and available roles.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .permissions import ROLE_PERMISSION_MATRIX
+        roles = [
+            {'code': 'super_admin', 'name': 'Super Admin', 'description': 'Full system control & security configuration'},
+            {'code': 'admin', 'name': 'Admin', 'description': 'Manage users, lawyers, cases, and analytics'},
+            {'code': 'lawyer', 'name': 'Lawyer (Advocate)', 'description': 'Manage assigned cases & legal client services'},
+            {'code': 'citizen', 'name': 'Citizen (User)', 'description': 'Legal advice queries, case tracking, booking'},
+        ]
+        return success(data={
+            'roles': roles,
+            'matrix': ROLE_PERMISSION_MATRIX,
+        }, message='RBAC Role Matrix retrieved.')
+
+
+class RoleAssignView(APIView):
+    """
+    POST /api/auth/assign-role/
+    Updates user role (Admin/Super Admin access required).
+    """
+    from .permissions import IsAdminUserRole
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request):
+        from .serializers import RoleAssignSerializer
+        serializer = RoleAssignSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error('Invalid payload.', status.HTTP_400_BAD_REQUEST, serializer.errors)
+
+        user_id = serializer.validated_data['user_id']
+        new_role = serializer.validated_data['role']
+
+        if new_role == 'super_admin' and not request.user.is_super_admin:
+            return error('Only Super Admins can assign the super_admin role.', status.HTTP_403_FORBIDDEN)
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return error('User not found.', status.HTTP_404_NOT_FOUND)
+
+        target_user.role = new_role
+        target_user.save()
+
+        return success(
+            data={'user': UserSerializer(target_user).data},
+            message=f"Role for {target_user.email} updated to {new_role}."
+        )
+
+

@@ -51,7 +51,11 @@ export default function AdvocateDashboard() {
             <button className="btn" style={{ border: '1px solid #E2E8F0', background: '#fff', color: '#E2E8F0', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, fontSize: '14px' }}>
               + New Case
             </button>
-            <div className="avatar avatar-md" style={{ background: '#7C3AED', color: '#fff', borderRadius: '50%', fontWeight: 600, fontSize: '15px' }}>{initials}</div>
+            {user?.profile_picture ? (
+              <img src={user.profile_picture} alt={user?.full_name} className="avatar avatar-md" style={{ borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              <div className="avatar avatar-md" style={{ background: '#7C3AED', color: '#fff', borderRadius: '50%', fontWeight: 600, fontSize: '15px' }}>{initials}</div>
+            )}
           </div>
         </header>
 

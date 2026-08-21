@@ -45,7 +45,11 @@ export default function SettingsPage() {
                 <div className="card settings-section">
                   <h3 className="mb-24">Profile</h3>
                   <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:28 }}>
-                    <div className="avatar avatar-xl">{initials}</div>
+                    {user?.profile_picture ? (
+                      <img src={user.profile_picture} alt={user?.full_name} className="avatar avatar-xl" style={{ objectFit: 'cover' }} />
+                    ) : (
+                      <div className="avatar avatar-xl">{initials}</div>
+                    )}
                     <div><a href="#" style={{ fontSize:13 }}>Change Photo</a></div>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>

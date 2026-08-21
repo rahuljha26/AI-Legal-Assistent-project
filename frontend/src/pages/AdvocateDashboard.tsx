@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar, Toast, useToast, Modal } from '../components/index';
+import NotificationBell from '../components/NotificationBell';
 import { caseAPI, adviceAPI } from '../services/api';
 
 const CASE_TYPES = ['Civil','Criminal','Family','Property','Consumer','Labour','Corporate','Other'];
@@ -97,7 +98,10 @@ export default function AdvocateDashboard() {
             <h1 className="text-lg font-bold text-white">Advocate Dashboard</h1>
             <p className="text-slate-400 text-xs">Manage your cases and conduct legal research</p>
           </div>
-          <button onClick={openCreate} className="btn-glow text-white px-4 py-2 rounded-xl text-sm font-medium">+ New Case</button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={openCreate} className="btn-glow text-white px-4 py-2 rounded-xl text-sm font-medium">+ New Case</button>
+          </div>
         </div>
 
         <div className="p-8 max-w-6xl mx-auto">

@@ -63,3 +63,6 @@ Thumbs.db
 
 # ----- Misc -----
 *.pyre_configuration
+
+# Local Netlify folder
+.netlify
