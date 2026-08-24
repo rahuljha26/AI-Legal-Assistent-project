@@ -9,6 +9,12 @@ All notable changes to the AI Legal Assistant project will be documented in this
 ### Current Focus
 - Enterprise Authentication & Security Upgrade (15-Phase Roadmap).
 
+### Added in Gemini Chatbot Upgrade
+- ✓ **Gemini-Clone Chatbot Integration**: Replaced legacy floating widgets (`ChatWidget.tsx` and `NyayaAssistant.tsx`) with a complete Gemini-Clone-style chat assistant (`GeminiChat.tsx` and `GeminiContext.tsx`) based on the `Gemini-Clone-main` architecture.
+- ✓ **Sidebar & History Navigation**: Added collapsible sidebar with "New Chat" and persistent recent prompts list.
+- ✓ **Legal Suggestion Cards & Streaming UI**: Added prompt suggestion cards tailored for Indian legal queries and simulated word-by-word streaming responses with markdown bold/line formatting.
+- ✓ **Server-Side API Security**: Routed AI chat queries through the secure Django backend endpoint (`/api/v1/advice/ask/` via `nyayaAPI.chat()`) keeping API keys server-side.
+
 ### Fixes
 - ✓ **Google Authentication Error Handling**: Resolved `"Google authentication failed. Please try again."` issue by adding fallback `GOOGLE_CLIENT_ID` in `OAuthButtons.tsx` and preventing swallowed error messages in `AuthComponents.jsx` & `OAuthButtons.tsx` so exact server and connection error reasons are surfaced to the user UI.
 - ✓ **Google OAuth Clock Skew Tolerance**: Added `clock_skew_in_seconds=60` to Google ID token verification in `GoogleAuthView` (`project/AILegal/views.py`) to handle minor system clock drift ("Token used too early") between local machines and Google auth servers.
@@ -19,7 +25,10 @@ All notable changes to the AI Legal Assistant project will be documented in this
 - ✓ **Mobile Access QR Codes**: Generated scannable QR codes for both live production web deployment and local Wi-Fi testing (`http://192.168.1.187:5173`).
 - ✓ **Enterprise Production Blueprint**: Added `LexAI_Enterprise_Production_Blueprint.pdf` to the root repository for deployment and architecture guidelines.
 
-### CORS & Netlify Deployment Fix
+### Netlify Deployment & Git Submodule Fix
+- ✓ **Orphaned Submodule Resolution**: Removed invalid Git submodule pointer (`IKAPI` mode `160000`) from the Git index which was triggering `fatal: No url found for submodule path 'IKAPI' in .gitmodules: exit status 128` during Netlify repo preparation.
+- ✓ **Git Ignore Protection**: Added `IKAPI/` to `.gitignore` to prevent third-party repos from being tracked as submodules.
+- ✓ **Production Sync**: Synchronized and pushed the fix to the GitHub remote repository (`main` branch) to allow automated continuous deployment.
 - ✓ **CORS Netlify Origin Support**: Added `https://dharma-ai-legal-assistent.netlify.app` and `^https:\/\/.*\.netlify\.app$` regex to `CORS_ALLOWED_ORIGINS` & `CORS_ALLOWED_ORIGIN_REGEXES` in `project/project/settings.py`.
 
 ### Added in Google Authenticator (TOTP 2FA) & Google OAuth
