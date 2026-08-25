@@ -190,4 +190,10 @@ export const nyayaAPI = {
    * Step 8: Retrieve the logged-in user's Nyaya email history.
    */
   history: () => api.get('/nyaya/history/'),
+
+  /**
+   * Free-form chat with Gemini (legal context). Used by GeminiChat widget.
+   * Routes through the /advice/ask/ backend endpoint — API key stays server-side.
+   */
+  chat: (prompt: string) => api.post('/advice/ask/', { query: prompt }),
 };

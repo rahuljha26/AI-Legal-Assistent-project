@@ -89,7 +89,8 @@ export default function ChatPage() {
         .catch(() => { /* silently ignore YouTube failures */ });
     } catch (err) {
       console.error('AI advice error:', err?.response?.data || err.message);
-      setMessages(prev => [...prev, { role:'ai', isError: true, content: 'Sorry, something went wrong. Please check your connection and try again.', originalQuery: q, time: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) }]);
+      const serverErrMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Sorry, something went wrong. Please check your connection and try again.';
+      setMessages(prev => [...prev, { role:'ai', isError: true, content: serverErrMsg, originalQuery: q, time: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) }]);
     } finally { setLoading(false); }
   };
 

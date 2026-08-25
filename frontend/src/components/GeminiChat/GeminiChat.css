@@ -1,0 +1,491 @@
+/*
+ * GeminiChat.css
+ * ──────────────
+ * Styles for the Gemini-Clone-style floating chat panel.
+ * Adapted from Gemini-Clone-main's Main.css + Sidebar.css for
+ * the project's dark theme and floating modal layout.
+ */
+
+/* ── FAB Button ─────────────────────────────────────────────── */
+.gemini-fab {
+  position: fixed;
+  bottom: 96px;
+  right: 24px;
+  z-index: 9990;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #4b90ff, #c084fc);
+  box-shadow: 0 8px 30px rgba(75, 144, 255, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.gemini-fab:hover {
+  transform: scale(1.12);
+  box-shadow: 0 10px 40px rgba(75, 144, 255, 0.6);
+}
+
+/* ── Backdrop ───────────────────────────────────────────────── */
+.gemini-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9991;
+  background: rgba(6, 11, 24, 0.80);
+  backdrop-filter: blur(4px);
+}
+
+/* ── Panel Container ────────────────────────────────────────── */
+.gemini-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 9992;
+  transform: translate(-50%, -50%);
+  width: min(960px, 96vw);
+  height: min(92vh, 720px);
+  display: flex;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0f1117;
+  border: 1px solid rgba(75, 144, 255, 0.2);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(75, 144, 255, 0.08);
+  animation: gemini-slide-up 0.3s ease;
+}
+
+@keyframes gemini-slide-up {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 24px)); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+.gemini-sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: #191b22;
+  border-right: 1px solid rgba(75, 144, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  transition: width 0.25s ease, min-width 0.25s ease;
+  overflow: hidden;
+}
+
+.gemini-sidebar.collapsed {
+  width: 64px;
+  min-width: 64px;
+}
+
+.gemini-sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gemini-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.gemini-menu-btn:hover { background: rgba(255,255,255,0.06); }
+
+.gemini-menu-btn img { width: 22px; filter: invert(1) opacity(0.6); }
+
+.gemini-new-chat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid rgba(75, 144, 255, 0.15);
+  background: rgba(75, 144, 255, 0.06);
+}
+
+.gemini-new-chat:hover { background: rgba(75, 144, 255, 0.14); }
+
+.gemini-new-chat img { width: 20px; filter: invert(1) opacity(0.7); }
+
+.gemini-new-chat-label {
+  color: #94a3b8;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.gemini-recent-title {
+  color: #475569;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 12px 6px 4px;
+  font-family: 'Inter', sans-serif;
+}
+
+.gemini-recent-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gemini-recent-entry:hover { background: rgba(255,255,255,0.05); }
+
+.gemini-recent-entry img { width: 16px; filter: invert(1) opacity(0.4); }
+
+.gemini-recent-entry p {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Inter', sans-serif;
+}
+
+.gemini-sidebar-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gemini-bottom-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gemini-bottom-item:hover { background: rgba(255,255,255,0.05); }
+
+.gemini-bottom-item img { width: 18px; filter: invert(1) opacity(0.4); }
+
+.gemini-bottom-item p {
+  color: #475569;
+  font-size: 12px;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Main Area ──────────────────────────────────────────────── */
+.gemini-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0f1117;
+}
+
+/* Nav */
+.gemini-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(75, 144, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.gemini-nav-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e2e8f0;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gemini-nav-title img { width: 22px; }
+
+.gemini-nav-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: color 0.2s;
+}
+
+.gemini-nav-close:hover { color: #fff; }
+
+/* Scrollable content */
+.gemini-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.gemini-content::-webkit-scrollbar { width: 4px; }
+.gemini-content::-webkit-scrollbar-thumb { background: rgba(75,144,255,0.2); border-radius: 4px; }
+
+/* ── Greet screen ───────────────────────────────────────────── */
+.gemini-greet {
+  padding: 32px 0 16px;
+}
+
+.gemini-greet p {
+  font-size: 2.4rem;
+  font-weight: 600;
+  color: #475569;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.25;
+}
+
+.gemini-greet span {
+  background: linear-gradient(135deg, #4b90ff, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Suggestion cards ───────────────────────────────────────── */
+.gemini-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding-bottom: 20px;
+}
+
+.gemini-card {
+  background: #1a1d26;
+  border: 1px solid rgba(75, 144, 255, 0.12);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s, border-color 0.2s;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.gemini-card:hover {
+  background: #1e2230;
+  border-color: rgba(75, 144, 255, 0.3);
+}
+
+.gemini-card p {
+  color: #94a3b8;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+}
+
+.gemini-card img {
+  width: 30px;
+  padding: 5px;
+  background: rgba(75, 144, 255, 0.1);
+  border-radius: 8px;
+  align-self: flex-end;
+  filter: invert(1) opacity(0.5);
+}
+
+/* ── Result area ────────────────────────────────────────────── */
+.gemini-result {
+  flex: 1;
+  padding: 8px 0 20px;
+}
+
+.gemini-result-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.gemini-result-title img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.gemini-result-title p {
+  color: #e2e8f0;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.6;
+  padding-top: 4px;
+  word-break: break-word;
+}
+
+.gemini-result-data {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.gemini-result-data img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.gemini-result-data p {
+  color: #cbd5e1;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.8;
+  font-weight: 300;
+}
+
+/* Loader shimmer */
+.gemini-loader {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gemini-loader hr {
+  border-radius: 4px;
+  border: none;
+  background: linear-gradient(to right, rgba(75,144,255,0.15), rgba(192,132,252,0.15), rgba(75,144,255,0.15));
+  background-size: 800px 50px;
+  height: 18px;
+  animation: gemini-shimmer 2.5s infinite linear;
+}
+
+@keyframes gemini-shimmer {
+  0%   { background-position: -800px 0; }
+  100% { background-position: 800px 0; }
+}
+
+/* ── Bottom search bar ──────────────────────────────────────── */
+.gemini-bottom {
+  flex-shrink: 0;
+  padding: 12px 20px 16px;
+  background: #0f1117;
+  border-top: 1px solid rgba(75, 144, 255, 0.08);
+}
+
+.gemini-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1a1d26;
+  border: 1px solid rgba(75, 144, 255, 0.18);
+  border-radius: 16px;
+  padding: 10px 14px;
+  transition: border-color 0.2s;
+}
+
+.gemini-search-box:focus-within {
+  border-color: rgba(75, 144, 255, 0.45);
+}
+
+.gemini-search-box textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  color: #e2e8f0;
+  line-height: 1.5;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.gemini-search-box textarea::placeholder { color: #475569; }
+
+.gemini-search-box textarea::-webkit-scrollbar { width: 3px; }
+.gemini-search-box textarea::-webkit-scrollbar-thumb { background: rgba(75,144,255,0.2); border-radius: 3px; }
+
+.gemini-icon-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gemini-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.gemini-icon-btn:hover { background: rgba(255,255,255,0.06); }
+
+.gemini-icon-btn img { width: 20px; filter: invert(1) opacity(0.5); }
+
+.gemini-send-btn {
+  background: linear-gradient(135deg, #4b90ff, #c084fc);
+  border: none;
+  cursor: pointer;
+  padding: 7px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.gemini-send-btn:hover { opacity: 0.85; transform: scale(1.05); }
+.gemini-send-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.gemini-send-btn img { width: 18px; filter: invert(1); }
+
+.gemini-disclaimer {
+  text-align: center;
+  font-size: 11px;
+  color: #334155;
+  margin-top: 8px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .gemini-panel {
+    width: 100vw;
+    height: 100dvh;
+    top: 0; left: 0;
+    transform: none;
+    border-radius: 0;
+    animation: gemini-slide-up-mobile 0.3s ease;
+  }
+
+  @keyframes gemini-slide-up-mobile {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .gemini-sidebar { display: none; }
+
+  .gemini-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .gemini-greet p { font-size: 1.6rem; }
+}
