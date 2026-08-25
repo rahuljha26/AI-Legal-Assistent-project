@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 export { ChatWidget } from './ChatWidget';
 export { NyayaAssistant } from './NyayaAssistant';
+export { GeminiChat } from './GeminiChat/GeminiChat';
 export { RoleBasedRoute } from './RoleBasedRoute';
 
 // ─── ProtectedRoute ───────────────────────────────────────────────────────────

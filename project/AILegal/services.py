@@ -55,50 +55,69 @@ def _get_constitution_context(query: str) -> str:
 
 
 def get_gemini_advice(query):
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return {"error": "GEMINI_API_KEY is not configured in the server environment (.env)."}
 
-    try:
-        constitution_context = _get_constitution_context(query)
-        context = (
-            f"{constitution_context}\n\n"
-            f"=== USER QUERY ===\n{query}"
-        )
+    client = genai.Client(api_key=api_key)
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=context,
-            config=types.GenerateContentConfig(
-                temperature=0.2,
-                top_p=0.95,
-                top_k=64,
-                max_output_tokens=8192,
-                response_mime_type="application/json",
-                system_instruction=(
-                    "You are a professional Indian legal advisor AI. For every query:\n"
-                    "1. Identify relevant Indian Constitution article or IPC section\n"
-                    "2. Provide clear step-by-step guidance (numbered list)\n"
-                    "3. List exact documents the user will need\n"
-                    "4. Specify exact authority/court/forum to approach\n"
-                    "5. State realistic possible outcomes\n"
-                    "6. End with: This is for informational purposes only. Consult a licensed advocate.\n\n"
-                    "You have been provided with the actual text of relevant Constitutional articles above. "
-                    "Use this database context to give accurate, article-specific advice.\n\n"
-                    "Respond strictly in the following JSON format:\n"
-                    "{\n"
-                    '  "constitution_reference": "string",\n'
-                    '  "applicable_law": "string",\n'
-                    '  "steps_to_take": ["string"],\n'
-                    '  "documents_required": ["string"],\n'
-                    '  "where_to_file": "string",\n'
-                    '  "possible_outcomes": ["string"],\n'
-                    '  "disclaimer": "This is for informational purposes only. Consult a licensed advocate."\n'
-                    "}"
+    constitution_context = _get_constitution_context(query)
+    context = (
+        f"{constitution_context}\n\n"
+        f"=== USER QUERY ===\n{query}"
+    )
+
+    models_to_try = [
+        "gemini-flash-latest",
+        "gemini-2.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-pro-latest",
+    ]
+
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=context,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    top_p=0.95,
+                    top_k=64,
+                    max_output_tokens=8192,
+                    response_mime_type="application/json",
+                    system_instruction=(
+                        "You are a professional Indian legal advisor AI. For every query:\n"
+                        "1. Identify relevant Indian Constitution article or IPC section\n"
+                        "2. Provide clear step-by-step guidance (numbered list)\n"
+                        "3. List exact documents the user will need\n"
+                        "4. Specify exact authority/court/forum to approach\n"
+                        "5. State realistic possible outcomes\n"
+                        "6. End with: This is for informational purposes only. Consult a licensed advocate.\n\n"
+                        "You have been provided with the actual text of relevant Constitutional articles above. "
+                        "Use this database context to give accurate, article-specific advice.\n\n"
+                        "Respond strictly in the following JSON format:\n"
+                        "{\n"
+                        '  "constitution_reference": "string",\n'
+                        '  "applicable_law": "string",\n'
+                        '  "steps_to_take": ["string"],\n'
+                        '  "documents_required": ["string"],\n'
+                        '  "where_to_file": "string",\n'
+                        '  "possible_outcomes": ["string"],\n'
+                        '  "disclaimer": "This is for informational purposes only. Consult a licensed advocate."\n'
+                        "}"
+                    )
                 )
             )
-        )
-        return json.loads(response.text)
-    except Exception as e:
-        return {"error": str(e)}
+            return json.loads(response.text)
+        except Exception as e:
+            last_error = str(e)
+            # If the error is authentication/quota/leak, no need to retry other models
+            if "403" in last_error or "PERMISSION_DENIED" in last_error or "API_KEY_INVALID" in last_error:
+                return {"error": f"Gemini API authentication failed: {last_error}"}
+            continue
+
+    return {"error": last_error or "Failed to generate legal advice from AI models."}
 
 
 

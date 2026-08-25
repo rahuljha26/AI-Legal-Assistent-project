@@ -526,7 +526,8 @@ class AdviceAskView(APIView):
         ai_response = get_gemini_advice(query)
 
         if 'error' in ai_response:
-            return error('AI engine error.', status.HTTP_500_INTERNAL_SERVER_ERROR, ai_response)
+            err_msg = ai_response.get('error', 'AI engine error.')
+            return error(f"AI engine error: {err_msg}", status.HTTP_500_INTERNAL_SERVER_ERROR, ai_response)
 
         advice = AdviceHistory.objects.create(
             user=request.user,

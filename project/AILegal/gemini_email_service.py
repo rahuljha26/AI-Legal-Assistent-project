@@ -44,7 +44,7 @@ def draft_email_with_gemini(user_name: str, email_type: str, raw_content: dict) 
     user_prompt += "\\nWrite in clear paragraphs. Use numbered list for steps.\\nKeep tone professional and compassionate.\\nOutput only the email body text, no subject line, no greeting."
     
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-flash-latest")
         response = model.generate_content([
             {"role": "user", "parts": [system_prompt + user_prompt]}
         ])
