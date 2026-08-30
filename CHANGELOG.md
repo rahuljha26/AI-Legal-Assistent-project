@@ -9,7 +9,15 @@ All notable changes to the AI Legal Assistant project will be documented in this
 ### Current Focus
 - Enterprise Authentication & Security Upgrade (15-Phase Roadmap).
 
-### Added in Gemini Chatbot Upgrade
+### Added in Web App Browser Deployment & Search Indexing (SEO)
+- ✓ **Google SEO & Rich Snippets**: Enhanced `frontend/index.html` with Title, Description, Keywords, OpenGraph social tags, Twitter cards, and Schema.org JSON-LD `WebApplication` structured data for search engine discovery.
+- ✓ **Sitemap & Robots.txt**: Created `frontend/public/sitemap.xml` for Google Search Console URL discovery and `frontend/public/robots.txt` specifying allowed crawling paths.
+- ✓ **Web App Manifest**: Added `frontend/public/site.webmanifest` for mobile and desktop browser installation and search branding.
+- ✓ **Cloud Backend Deployment Config**: Created `render.yaml` and updated `requirements.txt` with production WSGI server (`gunicorn`, `whitenoise`, etc.).
+- ✓ **Web App Browser Launcher**: Created `start_app.bat` to launch the Django REST backend (`http://localhost:8000`) and the Vite React web application (`http://localhost:5173`) simultaneously with automatic browser opening.
+- ✓ **Build & Deployment Verification**: Verified frontend production build compatibility (`npm run build`) and Django backend system check (`manage.py check` & `manage.py migrate`).
+
+
 - ✓ **Gemini-Clone Chatbot Integration**: Replaced legacy floating widgets (`ChatWidget.tsx` and `NyayaAssistant.tsx`) with a complete Gemini-Clone-style chat assistant (`GeminiChat.tsx` and `GeminiContext.tsx`) based on the `Gemini-Clone-main` architecture.
 - ✓ **Sidebar & History Navigation**: Added collapsible sidebar with "New Chat" and persistent recent prompts list.
 - ✓ **Legal Suggestion Cards & Streaming UI**: Added prompt suggestion cards tailored for Indian legal queries and simulated word-by-word streaming responses with markdown bold/line formatting.
