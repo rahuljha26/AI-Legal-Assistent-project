@@ -1,0 +1,16 @@
+# Robots.txt for LexAI Legal Assistant
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /signup
+Allow: /documents
+Allow: /dashboard
+Allow: /advocate/dashboard
+
+# Disallow internal OAuth callback popups & sensitive admin logs from indexing
+Disallow: /oauth/
+Disallow: /admin/audit-logs
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://dharma-ai-legal-assistent.netlify.app/sitemap.xml

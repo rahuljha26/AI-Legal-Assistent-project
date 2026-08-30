@@ -87,7 +87,7 @@ export const Sidebar = ({ items, userName, userRole, onLogout, currentPath }: Si
   const roleLabel: Record<string,string> = { admin:'Admin', advocate:'Advocate', user:'Citizen' };
 
   return (
-    <aside className="sidebar-bg w-64 min-h-screen flex flex-col flex-shrink-0">
+    <aside className="sidebar-bg w-64 min-h-screen hidden md:flex flex-col flex-shrink-0">
       {/* Logo */}
       <div className="px-6 pt-7 pb-5 border-b" style={{ borderColor:'rgba(79,110,247,.1)' }}>
         <div className="flex items-center gap-3">

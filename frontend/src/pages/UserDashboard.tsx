@@ -84,8 +84,29 @@ export default function UserDashboard() {
       <Sidebar items={sidebar} userName={user?.full_name||''} userRole={user?.role||''} onLogout={logout} currentPath={location.pathname} />
 
       <main className="flex-1 overflow-y-auto">
-        {/* Top bar */}
-        <div className="sticky top-0 z-10 px-8 py-4 flex items-center justify-between"
+        {/* Mobile logo bar — hidden on md+ since sidebar shows logo there */}
+        <div className="md:hidden sticky top-0 z-20 flex items-center justify-between px-4 py-3"
+          style={{ background:'rgba(6,11,24,.95)', backdropFilter:'blur(16px)', borderBottom:'1px solid rgba(79,110,247,.12)' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'linear-gradient(135deg,#4f6ef7,#7c3aed)' }}>
+              <span className="text-base">⚖️</span>
+            </div>
+            <div>
+              <p className="font-bold text-white text-sm leading-tight">LexAI</p>
+              <p className="text-xs leading-tight" style={{ color:'rgba(129,140,248,.7)' }}>Legal Assistant</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
+              style={{ background:'rgba(79,110,247,.08)', border:'1px solid rgba(79,110,247,.18)' }}>
+              <span className="text-indigo-300 text-xs font-semibold">{remaining}/20</span>
+            </div>
+            <NotificationBell />
+          </div>
+        </div>
+
+        {/* Top bar — desktop only */}
+        <div className="hidden md:flex sticky top-0 z-10 px-8 py-4 items-center justify-between"
           style={{ background:'rgba(6,11,24,.85)', backdropFilter:'blur(16px)', borderBottom:'1px solid rgba(79,110,247,.1)' }}>
           <div>
             <h1 className="text-lg font-bold text-white">Legal Assistant</h1>

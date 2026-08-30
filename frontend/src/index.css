@@ -186,3 +186,52 @@ body {
   color: #93c5fd;
   box-shadow: 0 0 12px rgba(79,110,247,.15);
 }
+
+/* ── Mobile layout ────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Pad bottom so bottom nav doesn't cover content */
+  main {
+    padding-bottom: 72px !important;
+  }
+
+  /* Reduce large paddings on mobile */
+  .p-8 {
+    padding: 1rem !important;
+  }
+  .px-8 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Make stat cards stack better */
+  .stat-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  /* Ensure glass cards have comfortable spacing */
+  .glass.rounded-3xl {
+    border-radius: 16px !important;
+  }
+
+  /* Mobile top bar logo area */
+  .mobile-logo-bar {
+    display: flex;
+  }
+
+  /* Touch target sizing */
+  button, a {
+    min-height: 40px;
+  }
+
+  /* Input fields larger on mobile for easier typing */
+  .input-field {
+    font-size: 1rem;
+    padding: 12px 16px;
+  }
+
+  /* Max content width full on mobile */
+  .max-w-5xl, .max-w-4xl, .max-w-3xl {
+    max-width: 100% !important;
+  }
+}

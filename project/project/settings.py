@@ -115,9 +115,14 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
     'https://dharma-ai-legal-assistent.netlify.app',
+    'capacitor://localhost',
+    'http://localhost',
+    'https://localhost',
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/.*\.netlify\.app$",
+    r"^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$",
+    r"^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$",
 ]
 CORS_ALLOW_CREDENTIALS = True
 

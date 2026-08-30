@@ -1,0 +1,17 @@
+{
+  "name": "LexAI — AI Legal Assistant",
+  "short_name": "LexAI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060b18",
+  "theme_color": "#060b18",
+  "description": "AI Legal Assistant & Indian Law Advisory Platform",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

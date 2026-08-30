@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AI Legal Assistant</string>
+    <string name="title_activity_main">AI Legal Assistant</string>
+    <string name="package_name">com.ailegal.assistant</string>
+    <string name="custom_url_scheme">com.ailegal.assistant</string>
+</resources>
