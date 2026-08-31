@@ -115,6 +115,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
     'https://dharma-ai-legal-assistent.netlify.app',
+    'https://lexai-legal-assistant.netlify.app',
     'capacitor://localhost',
     'http://localhost',
     'https://localhost',
