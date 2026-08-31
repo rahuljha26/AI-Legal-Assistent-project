@@ -13,4 +13,4 @@ Disallow: /admin/audit-logs
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://dharma-ai-legal-assistent.netlify.app/sitemap.xml
+Sitemap: https://lexai-legal-assistant.netlify.app/sitemap.xml
